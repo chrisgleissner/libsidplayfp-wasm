@@ -24,6 +24,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Before anything expensive: a workflow that GitHub cannot parse is
+      # reported as a failed run with no jobs, and `yaml.safe_load` does not
+      # catch it — a blank line inside a quoted multi-line argument silently
+      # ends the surrounding block scalar.
+      - name: Lint the workflows
+        uses: docker://rhysd/actionlint:1.7.7
+        with:
+          args: -color
+
       - uses: ./.github/actions/setup-build
         with:
           cache-key-prefix: verify

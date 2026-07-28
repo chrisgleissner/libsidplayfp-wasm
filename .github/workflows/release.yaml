@@ -389,6 +389,16 @@ jobs:
           set -euo pipefail
           UPSTREAM=$(node -p "require('./upstream.json').libsidplayfp.ref")
           RESIDFP=$(node -p "require('./upstream.json').libresidfp.ref")
+          # A heredoc, not an inline --notes string: a blank line inside a quoted
+          # multi-line argument puts the continuation at column 0, which ends the
+          # surrounding YAML block scalar.
+          cat > /tmp/release-notes.md <<NOTES
+          Contains libsidplayfp \`${UPSTREAM}\` and libresidfp \`${RESIDFP}\`.
+
+          Published to npm, then reinstalled from the registry and made to play a SID before this release was created.
+
+          The \`-complete-source.tar.gz\` asset is the complete corresponding source for the WebAssembly binaries, as required by the GPL: both upstream projects at their pinned commits, the modifications applied to them, the bindings, and the build. The same archive also ships inside the npm package at \`dist/complete-source.tar.gz\`.
+          NOTES
           gh release create "v$VERSION" \
             release/*.tgz \
             "release/libsidplayfp-wasm-${VERSION}.tar.gz" \
@@ -398,7 +408,5 @@ jobs:
             release/sbom.cdx.json \
             --target "$SHA" \
             --title "libsidplayfp WASM $VERSION" \
-            --notes "Contains libsidplayfp \`$UPSTREAM\` and libresidfp \`$RESIDFP\`. Published to npm and verified by installing it back from the registry.
-
-The \`-complete-source.tar.gz\` asset is the complete corresponding source for the WebAssembly binaries in this release, as required by the GPL: both upstream projects at their pinned commits, the modifications applied to them, the bindings, and the build." \
+            --notes-file /tmp/release-notes.md \
             --generate-notes
