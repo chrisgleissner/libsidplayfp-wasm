@@ -1,4 +1,4 @@
-import { type LibsidplayfpWasmModule, type SidPlayerContextOptions } from "../dist/libsidplayfp.js";
+import { type LibsidplayfpWasmModule, type SidPlayerContextOptions } from "./libsidplayfp.js";
 /**
  * Which SID emulation to load. Both are built from the same bindings and
  * shipped side by side — `dist/` is reSIDfp, `dist/sidlite/` is SIDLite. See
@@ -28,7 +28,7 @@ export interface LoadLibsidplayfpOptions extends SidPlayerContextOptions {
 }
 export declare function resolveSidEngine(engine?: SidEngine): SidEngine;
 export declare function loadLibsidplayfp(options?: LoadLibsidplayfpOptions): Promise<LibsidplayfpWasmModule>;
-export type { C64Model, CiaModel, CombinedWaveforms, EmulationConfig, EngineInfo, FilterConfig, LibsidplayfpWasmModule, ResolvedEmulationConfig, SamplingMethod, SidModel, SidPlayerContext, SidPlayerContextOptions, SidTuneInfo, TuneClock, TuneCompatibility, TuneSidModel } from "../dist/libsidplayfp.js";
+export type { C64Model, CiaModel, CombinedWaveforms, EmulationConfig, EngineInfo, FilterConfig, LibsidplayfpWasmModule, ResolvedEmulationConfig, SamplingMethod, SidModel, SidPlayerContext, SidPlayerContextOptions, SidTuneInfo, TuneClock, TuneCompatibility, TuneSidModel } from "./libsidplayfp.js";
 export { SidAudioEngine } from "./player.js";
 export type { SidWriteTrace } from "./player.js";
 /**

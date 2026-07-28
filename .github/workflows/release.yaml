@@ -165,7 +165,15 @@ jobs:
           node scripts/complete-source.mjs --out release
           STAGE="release/libsidplayfp-wasm-${VERSION}"
           mkdir -p "$STAGE/sidlite"
-          for file in libsidplayfp.js libsidplayfp.wasm libsidplayfp.d.ts LICENSE README.md; do
+          # This tarball is distributed on its own, separately from npm, so it
+          # has to carry its own licence, third-party notices and record of the
+          # changes made to upstream (GPL-2.0 sections 1 and 2(a)) rather than
+          # relying on the npm package around it. Once at the root: they govern
+          # both engines, which are the same code built against two emulations.
+          for file in LICENSE THIRD-PARTY-NOTICES.md MODIFICATIONS.md UPSTREAM.json README.md; do
+            cp "dist/$file" "$STAGE/$file"
+          done
+          for file in libsidplayfp.js libsidplayfp.wasm libsidplayfp.d.ts; do
             cp "dist/$file" "$STAGE/$file"
             cp "dist/sidlite/$file" "$STAGE/sidlite/$file"
           done
@@ -187,7 +195,13 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      # `id-token` for npm's OIDC trusted publishing; `attestations` for the
+      # build-provenance step below, which needs to write an attestation to this
+      # repository. Without it that step fails *after* npm has accepted the
+      # publish, leaving a version on the registry that never got its
+      # post-publish smoke test or its tag.
       id-token: write
+      attestations: write
     steps:
       - uses: actions/checkout@v7
         with:
@@ -238,6 +252,18 @@ jobs:
           fi
           echo "OIDC is available"
 
+      # Before the publish, not after. Attestation is over the tarball's digest,
+      # so it does not need the package to exist on the registry — and anything
+      # fallible that runs *after* an irreversible step can only ever leave the
+      # release half-done. It did exactly that once: the attestation failed for
+      # want of a permission, npm had already accepted the publish, and the
+      # version reached the registry with neither its post-publish smoke test
+      # nor its tag. Fallible work belongs before the point of no return.
+      - name: Attest the release artifact
+        uses: actions/attest-build-provenance@v4
+        with:
+          subject-path: release/*.tgz
+
       - name: Publish to npm
         env:
           TARBALL: ${{ steps.artifact.outputs.tarball }}
@@ -245,6 +271,9 @@ jobs:
         run: |
           set -euo pipefail
           PACKAGE=$(node -p "require('./package.json').name")
+          # Idempotent on purpose: if an earlier attempt published and then died
+          # before tagging, re-running must be able to finish the job rather than
+          # fail against an immutable version.
           if npm view "$PACKAGE@$VERSION" version --registry=https://registry.npmjs.org >/dev/null 2>&1; then
             echo "$PACKAGE@$VERSION is already on npm; versions are immutable, so nothing to do."
             exit 0
@@ -254,11 +283,6 @@ jobs:
           # Renaming this file breaks publishing until that registration is
           # updated to match.
           npm publish "$TARBALL" --access public
-
-      - name: Attest the release artifact
-        uses: actions/attest-build-provenance@v4
-        with:
-          subject-path: release/*.tgz
 
   smoke:
     name: Smoke-test the published package

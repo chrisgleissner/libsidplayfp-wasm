@@ -190,7 +190,7 @@ different things until they were made one file. Ask specifically:
 
 **2. Consistency.** The same fact must read the same way everywhere it appears:
 
-- `bindings.cpp` and `src/bindings/libsidplayfp.d.ts` — a binding with no
+- `bindings.cpp` and `src/libsidplayfp.d.ts` — a binding with no
   declaration, or the reverse, fails `test/binding-surface.test.ts`.
 - Coverage thresholds in `scripts/check-coverage.mjs`, `.codecov.yml`,
   `README.md`, `AGENTS.md`, and the workflow step names.
@@ -258,7 +258,7 @@ build rather than a one-off.
 - Keep `scripts/build-native-reference.sh` and `docker/entrypoint.sh` behavior
   aligned with `src/bindings/bindings.cpp`; they are the formal comparison
   control and production build respectively.
-- `src/bindings/libsidplayfp.d.ts` and `src/bindings/ARTIFACT.md` are the
+- `src/libsidplayfp.d.ts` and `src/bindings/ARTIFACT.md` are the
   artifact's public type surface and README. Update them in the same change as
   `bindings.cpp`; `docker/entrypoint.sh` copies them verbatim.
 - The exception ABI must be identical for libresidfp, libsidplayfp, and the

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 
 import { loadLibsidplayfp, type SidEngine } from "../src/index.js";
@@ -19,7 +19,7 @@ const BINDINGS = readFileSync(
   "utf8",
 );
 const DECLARATIONS = readFileSync(
-  path.join(ROOT, "src/bindings/libsidplayfp.d.ts"),
+  path.join(ROOT, "src/libsidplayfp.d.ts"),
   "utf8",
 );
 
@@ -51,7 +51,7 @@ describe("public binding surface", () => {
     const missing = registered.filter((name) => !declared.has(name));
     expect(
       missing,
-      `bindings.cpp registers these but src/bindings/libsidplayfp.d.ts does not declare them: ${missing.join(", ")}`,
+      `bindings.cpp registers these but src/libsidplayfp.d.ts does not declare them: ${missing.join(", ")}`,
     ).toEqual([]);
   });
 
@@ -62,7 +62,7 @@ describe("public binding surface", () => {
     );
     expect(
       extra,
-      `src/bindings/libsidplayfp.d.ts declares these but bindings.cpp does not register them: ${extra.join(", ")}`,
+      `src/libsidplayfp.d.ts declares these but bindings.cpp does not register them: ${extra.join(", ")}`,
     ).toEqual([]);
   });
 
@@ -70,21 +70,37 @@ describe("public binding surface", () => {
     for (const artifact of ["dist", "dist/sidlite"]) {
       expect(
         readFileSync(path.join(ROOT, artifact, "libsidplayfp.d.ts"), "utf8"),
-        `${artifact}/libsidplayfp.d.ts differs from src/bindings/libsidplayfp.d.ts`,
+        `${artifact}/libsidplayfp.d.ts differs from src/libsidplayfp.d.ts`,
       ).toBe(DECLARATIONS);
     }
   });
 
-  it("names each artifact's package.json after the real package version", () => {
+  it("names the artifact's package.json after the real package version", () => {
     const { version } = JSON.parse(
       readFileSync(path.join(ROOT, "package.json"), "utf8"),
     );
-    for (const artifact of ["dist", "dist/sidlite"]) {
-      const meta = JSON.parse(
-        readFileSync(path.join(ROOT, artifact, "package.json"), "utf8"),
-      );
-      expect(meta.version, `${artifact}/package.json is stale`).toBe(version);
-    }
+    const meta = JSON.parse(
+      readFileSync(path.join(ROOT, "dist/package.json"), "utf8"),
+    );
+
+    expect(meta.version, "dist/package.json is stale").toBe(version);
+  });
+
+  /**
+   * The licence, the notices and the change record govern the whole package and
+   * sit at its root and beside the primary artifact. Repeating them inside
+   * `dist/sidlite/` added six files that said nothing new — the second engine is
+   * the same code built against a different emulation, in the same package,
+   * under the same licence.
+   */
+  it("keeps the nested engine to what is needed to load it", () => {
+    const nested = readdirSync(path.join(ROOT, "dist/sidlite")).sort();
+
+    expect(nested).toEqual([
+      "libsidplayfp.d.ts",
+      "libsidplayfp.js",
+      "libsidplayfp.wasm",
+    ]);
   });
 });
 

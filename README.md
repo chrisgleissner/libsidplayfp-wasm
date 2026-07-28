@@ -8,11 +8,17 @@
 
 Play Commodore 64 SID music in the browser, Node.js, or Bun.
 
-This is [libsidplayfp](https://github.com/libsidplayfp/libsidplayfp) - the
-reference C64 SID player - compiled to WebAssembly, with TypeScript types and a
-`SidAudioEngine` wrapper. Both SID emulations ship in every release, and each
-build is compared sample-for-sample against a native build of the same source
-before it is published.
+This is [libsidplayfp](https://github.com/libsidplayfp/libsidplayfp) compiled to
+WebAssembly, with TypeScript types and a `SidAudioEngine` wrapper. It runs the
+tune's own 6510 code inside a cycle-based emulation of the C64 and its SID chips,
+so what you hear is the program playing, not a file being read.
+
+Two SID emulations come with it: **reSIDfp**, which models the 6581 and 8580
+chips as faithfully as it can while staying realtime, and **SIDLite**, which
+approximates them and renders about an order of magnitude faster.
+
+Every build is compared sample-for-sample against a native build of the same
+source before it is published.
 
 ```bash
 npm install libsidplayfp-wasm
@@ -95,15 +101,15 @@ if (engine.supportsFilterConfig()) {
 
 ## ⚙️ Engines
 
-Both ship in every release; pick per instance.
+Pick per instance.
 
 | Engine  | Select with | Use it for |
 | ------- | ----------- | ---------- |
 | SIDLite | `"sidlite"` | The default. Fast, clean playback and bulk corpus work. |
-| reSIDfp | `"residfp"` | Cycle-accurate reference fidelity and filter tuning. |
+| reSIDfp | `"residfp"` | Cycle-exact 6581/8580 emulation. The only one of the two that supports filter tuning. |
 
 ```ts
-const reference = new SidAudioEngine({ engine: "residfp" });
+const accurate = new SidAudioEngine({ engine: "residfp" });
 ```
 
 `LIBSIDPLAYFP_WASM_ENGINE` sets a process-wide default; an explicit `engine`
@@ -199,7 +205,8 @@ The exported constants are always exact, whichever scheme is in force.
 ## ✅ How releases are verified
 
 An emulator can sound plausible while being subtly wrong, so correctness here is
-settled by comparison against a reference, not by listening.
+settled by comparing the WebAssembly build against a native build of the same
+source at the same pinned commits, not by listening.
 
 **Every commit**
 

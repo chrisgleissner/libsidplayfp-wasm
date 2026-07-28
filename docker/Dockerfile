@@ -27,7 +27,7 @@ RUN emcc --version
 COPY src/bindings/bindings.cpp /opt/libsidplayfp-wasm/src/bindings/bindings.cpp
 # The artifact's type surface and README are checked-in sources, not heredocs in
 # entrypoint.sh, so bindings.cpp and the .d.ts can be reviewed side by side.
-COPY src/bindings/libsidplayfp.d.ts /opt/libsidplayfp-wasm/src/bindings/libsidplayfp.d.ts
+COPY src/libsidplayfp.d.ts /opt/libsidplayfp-wasm/src/libsidplayfp.d.ts
 COPY src/bindings/ARTIFACT.md /opt/libsidplayfp-wasm/src/bindings/ARTIFACT.md
 COPY package.json /opt/libsidplayfp-wasm/package.json
 # Licensing artifacts are copied beside every built .wasm, so an artifact taken

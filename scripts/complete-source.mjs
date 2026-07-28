@@ -16,6 +16,19 @@
  *                   Docker build, and the build scripts
  *   README.md       what this is and how to rebuild from it
  *
+ * Upstream's own test suites are included, and deliberately. GPL-2.0 section 3
+ * asks for "all the source code for all modules it contains, plus any associated
+ * interface definition files, plus the scripts used to control compilation" — a
+ * test suite is none of those, so the licence alone would not require it. What
+ * requires it is upstream's build: `libsidplayfp/configure.ac` and
+ * `libresidfp/configure.ac` both name `tests/Makefile` in AC_CONFIG_FILES, so a
+ * tree without those directories fails at `configure` and the archive would no
+ * longer rebuild the binaries — which is the property section 3 actually cares
+ * about. They cost 384 KB of a 5.4 MB tree; `libsidplayfp/src` is 3.8 MB of it.
+ *
+ * Our own tests are not included, for the complementary reason: nothing in the
+ * build refers to them, so their absence cannot stop anyone rebuilding.
+ *
  * With no --out it writes `dist/complete-source.tar.gz`, which ships inside the
  * npm package so the source accompanies the object code (GPL-2.0 section 3(a)).
  * The release workflow additionally emits a version-named copy as a release

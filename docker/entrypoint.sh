@@ -62,9 +62,10 @@ fi
 
 # Which SID emulation the artifact is built with.
 #
-#   residfp  cycle-accurate, what a C64 actually sounds like — the reference
-#   sidlite  sounds good and renders ~an order of magnitude faster; the default
-#            engine callers get unless they ask for reSIDfp
+#   residfp  libresidfp's cycle-exact 6581/8580 emulation, which aims to
+#            replicate the chip as faithfully as it can while staying realtime
+#   sidlite  an approximation that renders ~an order of magnitude faster; the
+#            default engine callers get unless they ask for reSIDfp
 #
 # libresidfp is cross-compiled either way: SIDLite lives inside libsidplayfp
 # itself, and building both keeps the two artifacts identical apart from the
@@ -251,8 +252,20 @@ fi
 # Link one engine, prove it is the engine it claims to be, prove it renders, and
 # emit the artifact's metadata beside it.
 link_engine() {
-    local engine="$1" output_root="$2"
+    # metadata=full stages the licence, notices, provenance and manifest beside
+    # the binary; metadata=minimal stages only what is needed to load it.
+    local engine="$1" output_root="$2" metadata="${3:-full}"
     mkdir -p "${output_root}"
+
+    # Remove what a previous build staged here before staging again. Without
+    # this a file that stops being produced simply stays, and the directory
+    # keeps shipping it — which is how a stale artifact outlives the decision to
+    # drop it. Only the files this function writes: `dist/` also holds the
+    # TypeScript output and the source archive, which are not ours to delete.
+    rm -f "${output_root}/libsidplayfp.js" "${output_root}/libsidplayfp.wasm" \
+          "${output_root}/libsidplayfp.d.ts" "${output_root}/LICENSE" \
+          "${output_root}/THIRD-PARTY-NOTICES.md" "${output_root}/MODIFICATIONS.md" \
+          "${output_root}/UPSTREAM.json" "${output_root}/README.md"
     echo "=== linking ${engine} into ${output_root} ==="
 
     local engine_flags=()
@@ -312,10 +325,22 @@ link_engine() {
     # producing an artifact that passes every static check and emits no samples.
     node /opt/libsidplayfp-wasm/scripts/smoke-render.mjs "${output_root}" /opt/libsidplayfp-wasm/test-tone-c4.sid
 
+    cp /opt/libsidplayfp-wasm/src/libsidplayfp.d.ts "${output_root}/libsidplayfp.d.ts"
+
+    # The secondary engine sits inside the primary artifact's own directory, in
+    # the same npm package, under the same licence, built from the same commits.
+    # Repeating the licence, the notices, the provenance and a manifest one level
+    # down duplicates six files to say what the parent already says, so the
+    # nested artifact carries only what is needed to load it: the glue, the
+    # binary, and the declarations copied just above. Node still reads `type:
+    # module` from the parent manifest, because it walks up.
+    if [[ "${metadata}" != "full" ]]; then
+        rm -f "${output_root}/package.json"
+        return
+    fi
+
     # The GPL text that governs the binary, alongside the notices for the
     # third-party components compiled into it and the changes made to upstream.
-    # Every directory that carries a .wasm carries these too, so an artifact
-    # copied out of the package on its own is still compliant.
     cp COPYING "${output_root}/LICENSE"
     cp /opt/libsidplayfp-wasm/THIRD-PARTY-NOTICES.md "${output_root}/THIRD-PARTY-NOTICES.md"
     cp /opt/libsidplayfp-wasm/MODIFICATIONS.md "${output_root}/MODIFICATIONS.md"
@@ -359,13 +384,12 @@ writeFileSync(target, `${JSON.stringify({
 }, null, 2)}\n`);
 ' "${output_root}/package.json" "${PACKAGE_VERSION}"
 
-    cp /opt/libsidplayfp-wasm/src/bindings/libsidplayfp.d.ts "${output_root}/libsidplayfp.d.ts"
     cp /opt/libsidplayfp-wasm/src/bindings/ARTIFACT.md "${output_root}/README.md"
 }
 
 if [[ "${SID_ENGINE}" == "both" ]]; then
     link_engine residfp "${OUTPUT_ROOT}"
-    link_engine sidlite "${OUTPUT_ROOT}/sidlite"
+    link_engine sidlite "${OUTPUT_ROOT}/sidlite" minimal
 else
     link_engine "${SID_ENGINE}" "${OUTPUT_ROOT}"
 fi

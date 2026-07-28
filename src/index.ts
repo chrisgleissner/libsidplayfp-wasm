@@ -2,7 +2,7 @@ import createLibsidplayfp, {
     type LibsidplayfpWasmModule,
     type SidPlayerContext,
     type SidPlayerContextOptions
-} from "../dist/libsidplayfp.js";
+} from "./libsidplayfp.js";
 
 /**
  * Read a configuration variable, preferring the current name over the SIDFlow
@@ -61,14 +61,6 @@ export interface LoadLibsidplayfpOptions extends SidPlayerContextOptions {
     engine?: SidEngine;
 }
 
-// `../dist/` rather than `./`, in both the artifact URLs and the module
-// specifiers above and below: this file is compiled from `src/` into `dist/`,
-// and the specifier is emitted verbatim. From `dist/index.js` it resolves to
-// `dist/` and from `src/index.ts` — which is what the test suite and coverage
-// actually load — it resolves to the built artifacts. `./` would be correct
-// only for the compiled copy and would leave the source unresolvable.
-const artifactBaseUrl = new URL("../dist/", import.meta.url);
-const sidliteArtifactBaseUrl = new URL("../dist/sidlite/", import.meta.url);
 
 function envEngine(): SidEngine | undefined {
     const raw = readEnv("LIBSIDPLAYFP_WASM_ENGINE", "SIDFLOW_SID_ENGINE")?.toLowerCase();
@@ -96,26 +88,29 @@ async function createModulePromise(
     options: LoadLibsidplayfpOptions
 ): Promise<LibsidplayfpWasmModule> {
     const engine = resolveSidEngine(options.engine);
-    const baseUrl = engine === "sidlite" ? sidliteArtifactBaseUrl : artifactBaseUrl;
 
-    const locate = options.locateFile ?? ((asset: string) => {
-        // The path override names one specific binary, so it can only apply to
-        // the engine the caller actually asked for.
-        const override = isServerLikeEnvironment() ? wasmPathOverride() : undefined;
-        return override ?? new URL(asset, baseUrl).href;
-    });
+    // No `locateFile` unless someone asked for one. Emscripten's own default
+    // resolves the `.wasm` against the glue module's location, which is right in
+    // every layout — beside `dist/index.js`, or wherever a consumer copied those
+    // files to. Computing a URL here instead used to hard-code the assumption
+    // that the directory is called `dist`, so deploying the files flat broke it.
+    //
+    // The path override names one specific binary, so it can only apply to the
+    // engine the caller actually asked for.
+    const override = isServerLikeEnvironment() ? wasmPathOverride() : undefined;
+    const locate = options.locateFile ?? (override ? () => override : undefined);
 
     // reSIDfp keeps the static import so bundlers can see it. SIDLite is loaded
     // dynamically: it is the secondary artifact and must not become a hard
-    // dependency of every bundle that only ever wants the reference engine.
+    // dependency of every bundle that only ever wants the default engine.
     const factory = engine === "sidlite"
-        ? (await import("../dist/sidlite/libsidplayfp.js")).default
+        ? (await import("./sidlite/libsidplayfp.js")).default
         : createLibsidplayfp;
 
     const { engine: _engine, ...moduleOptions } = options;
     return await factory({
         ...moduleOptions,
-        locateFile: locate
+        ...(locate ? { locateFile: locate } : {})
     });
 }
 
@@ -162,7 +157,7 @@ export type {
     TuneClock,
     TuneCompatibility,
     TuneSidModel
-} from "../dist/libsidplayfp.js";
+} from "./libsidplayfp.js";
 
 export { SidAudioEngine } from "./player.js";
 export type { SidWriteTrace } from "./player.js";

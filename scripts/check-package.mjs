@@ -59,10 +59,12 @@ try {
     "package/dist/MODIFICATIONS.md",
     "package/dist/UPSTREAM.json",
     "package/dist/complete-source.tar.gz",
-    "package/dist/sidlite/LICENSE",
-    "package/dist/sidlite/THIRD-PARTY-NOTICES.md",
-    "package/dist/sidlite/MODIFICATIONS.md",
-    "package/dist/sidlite/UPSTREAM.json",
+    // `dist/sidlite/` carries only what is needed to load the second engine.
+    // The licence, the notices, the change record and the provenance govern the
+    // whole package and are asserted once above; repeating them one directory
+    // down would say nothing the parent does not already say.
+    "package/dist/sidlite/libsidplayfp.js",
+    "package/dist/sidlite/libsidplayfp.d.ts",
   ];
   for (const entry of required) {
     if (!entries.includes(entry)) throw new Error(`package is missing ${entry}`);
@@ -122,20 +124,21 @@ try {
     }
   }
 
-  // The upstream commits recorded beside each artifact are what identifies the
+  // The upstream commits recorded in the package are what identifies the
   // corresponding source, so they must match the pins the build actually used.
+  // Recorded once: both engines are built from the same two commits in the same
+  // run — that is the premise of comparing them — so a second copy inside
+  // `dist/sidlite/` could only ever repeat this one or contradict it.
   const pins = JSON.parse(readFileSync(path.join(PACKAGE_ROOT, "upstream.json"), "utf8"));
-  for (const artifact of ["dist", "dist/sidlite"]) {
-    const stamped = JSON.parse(
-      readFileSync(path.join(installed, artifact, "UPSTREAM.json"), "utf8"),
-    );
-    for (const library of ["libsidplayfp", "libresidfp"]) {
-      if (stamped[library]?.commit !== pins[library].commit) {
-        throw new Error(
-          `${artifact}/UPSTREAM.json records ${library} ${stamped[library]?.commit}, ` +
-            `but upstream.json pins ${pins[library].commit}`,
-        );
-      }
+  const stamped = JSON.parse(
+    readFileSync(path.join(installed, "dist", "UPSTREAM.json"), "utf8"),
+  );
+  for (const library of ["libsidplayfp", "libresidfp"]) {
+    if (stamped[library]?.commit !== pins[library].commit) {
+      throw new Error(
+        `dist/UPSTREAM.json records ${library} ${stamped[library]?.commit}, ` +
+          `but upstream.json pins ${pins[library].commit}`,
+      );
     }
   }
 

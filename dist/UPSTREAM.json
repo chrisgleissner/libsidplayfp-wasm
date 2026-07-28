@@ -1,6 +1,6 @@
 {
   "package": "libsidplayfp-wasm",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "libsidplayfp": {
     "repository": "https://github.com/libsidplayfp/libsidplayfp",
     "ref": "v3.0.2",
