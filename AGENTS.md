@@ -203,6 +203,29 @@ different things until they were made one file. Ask specifically:
 - Build flags in `docker/entrypoint.sh` and what the README claims about
   runtime support.
 
+## What a host must know about instance lifetime
+
+Every module `loadLibsidplayfp()` returns owns a **16.2 MB WebAssembly linear
+memory**, declared with a 2048 MB maximum. That figure is constant: measured at
+0, 10, 30, 60 and 120 seconds of rendering, it does not grow with render length.
+
+Two consequences for anyone embedding this at scale:
+
+- `dispose()` nulls `module` and `modulePromise` precisely so that buffer becomes
+  collectable at once, rather than waiting for the wrapper object. **Do not
+  remove that** — a host creating an engine per job depends on it, and the
+  dependency is invisible from inside this repository.
+- The 16.2 MB is *external* to V8's heap, so it exerts almost no collection
+  pressure. A host that creates engines faster than the collector reclaims them
+  can exhaust memory while its JS heap still looks small, and the failure
+  surfaces as `RangeError: Out of memory` from `WebAssembly.instantiate` rather
+  than as anything resembling a leak in this library.
+
+Passing any option beyond `engine` — `instantiateWasm`, `locateFile`, a path
+override — makes the load non-cacheable by design, so each call really does
+build a new module. That is what a per-job host wants; it is also why such a
+host must dispose.
+
 **3. Documentation.** Update the docs in the same change, not afterwards:
 
 - `README.md` for anything a *user* sees: API, engines, browser support,
