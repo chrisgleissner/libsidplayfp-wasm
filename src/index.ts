@@ -61,6 +61,12 @@ export interface LoadLibsidplayfpOptions extends SidPlayerContextOptions {
     engine?: SidEngine;
 }
 
+// `../dist/` rather than `./`, in both the artifact URLs and the module
+// specifiers above and below: this file is compiled from `src/` into `dist/`,
+// and the specifier is emitted verbatim. From `dist/index.js` it resolves to
+// `dist/` and from `src/index.ts` — which is what the test suite and coverage
+// actually load — it resolves to the built artifacts. `./` would be correct
+// only for the compiled copy and would leave the source unresolvable.
 const artifactBaseUrl = new URL("../dist/", import.meta.url);
 const sidliteArtifactBaseUrl = new URL("../dist/sidlite/", import.meta.url);
 
