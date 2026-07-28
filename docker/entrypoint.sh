@@ -33,8 +33,25 @@ RESIDFP_GIT_URL="https://github.com/libsidplayfp/libresidfp"
 # Pin upstream through the checked-in, immutable manifest. Overrides are for
 # controlled diagnostics only; release automation always updates the manifest
 # and records the exact resolved commit before a build can publish.
-LIBSIDPLAYFP_REF="${LIBSIDPLAYFP_REF:-$(node "${UPSTREAM_SCRIPT}" get libsidplayfp.ref)}"
-LIBRESIDFP_REF="${LIBRESIDFP_REF:-$(node "${UPSTREAM_SCRIPT}" get libresidfp.ref)}"
+#
+# The commit, not just the tag, is what upstream.json calls immutable — and git
+# tags are not. Until sync_repo started comparing it the recorded commit had no
+# reader at all, so a force-pushed upstream tag would have silently changed what
+# we ship. An explicit ref override is a deliberate diagnostic and waives the
+# check for that library alone, which is why the override has to be detected
+# here, before the manifest default is substituted.
+if [[ -n "${LIBSIDPLAYFP_REF:-}" ]]; then
+    LIBSIDPLAYFP_COMMIT=""
+else
+    LIBSIDPLAYFP_REF="$(node "${UPSTREAM_SCRIPT}" get libsidplayfp.ref)"
+    LIBSIDPLAYFP_COMMIT="$(node "${UPSTREAM_SCRIPT}" get libsidplayfp.commit)"
+fi
+if [[ -n "${LIBRESIDFP_REF:-}" ]]; then
+    LIBRESIDFP_COMMIT=""
+else
+    LIBRESIDFP_REF="$(node "${UPSTREAM_SCRIPT}" get libresidfp.ref)"
+    LIBRESIDFP_COMMIT="$(node "${UPSTREAM_SCRIPT}" get libresidfp.commit)"
+fi
 
 # Which SID emulation the artifact is built with.
 #
@@ -56,14 +73,29 @@ esac
 echo "SID engine: ${SID_ENGINE}"
 
 sync_repo() {
-    local url="$1" dest="$2" ref="$3"
+    local url="$1" dest="$2" ref="$3" expected_commit="${4:-}"
     if [[ ! -d "${dest}/.git" ]]; then
         git clone --recurse-submodules "${url}" "${dest}"
     else
-        git -C "${dest}" fetch --tags origin
+        # --force so a retagged upstream release still lands here rather than
+        # leaving a stale cached tag that quietly builds the wrong source.
+        git -C "${dest}" fetch --tags --force origin
     fi
     git -C "${dest}" checkout --force "${ref}"
     git -C "${dest}" submodule update --init --recursive
+
+    local actual
+    actual="$(git -C "${dest}" rev-parse HEAD)"
+    if [[ -n "${expected_commit}" && "${actual}" != "${expected_commit}" ]]; then
+        echo "PIN CHECK FAILED: ${url} ${ref} resolves to ${actual}," >&2
+        echo "but upstream.json pins ${expected_commit}. Git tags are mutable; this is" >&2
+        echo "the check that notices. Re-derive the pin deliberately with" >&2
+        echo "  node scripts/upstream.mjs update --ref ${ref} --commit ${actual}" >&2
+        exit 1
+    fi
+    if [[ -n "${expected_commit}" ]]; then
+        echo "pin check: ${url} ${ref} == ${expected_commit}"
+    fi
 }
 
 # ---------------------------------------------------------------------------
@@ -75,15 +107,14 @@ sync_repo() {
 # this step is load-bearing rather than an optimisation. It runs for both
 # engines so the two artifacts differ only in the emulation.
 # ---------------------------------------------------------------------------
-sync_repo "${RESIDFP_GIT_URL}" "${RESIDFP_CACHE_REPO}" "${LIBRESIDFP_REF}"
+sync_repo "${RESIDFP_GIT_URL}" "${RESIDFP_CACHE_REPO}" "${LIBRESIDFP_REF}" "${LIBRESIDFP_COMMIT}"
 echo "libresidfp pinned at ${LIBRESIDFP_REF} ($(git -C "${RESIDFP_CACHE_REPO}" rev-parse --short HEAD))"
 
 rsync -a --delete "${RESIDFP_CACHE_REPO}/" "${RESIDFP_BUILD_ROOT}/"
 cd "${RESIDFP_BUILD_ROOT}"
 
-# reSIDfp builds its filter tables on helper threads. These sources used to live
-# in libsidplayfp; since v3.x they are here, which is why the guard has to be
-# applied to this tree too.
+# reSIDfp builds its filter tables on helper threads. Since libsidplayfp v3.x
+# those sources live in libresidfp, so the guard has to be applied here too.
 python3 /opt/libsidplayfp-wasm/scripts/apply-thread-guards.py "${RESIDFP_BUILD_ROOT}"
 
 # Diagnostic knob: e.g. SIDFLOW_EXTRA_FLAGS="-fsanitize=address" instruments the
@@ -94,6 +125,30 @@ if [[ -n "${EXTRA_FLAGS}" ]]; then
     echo "extra build flags: ${EXTRA_FLAGS}"
 fi
 
+# Exception ABI.
+#
+# -fwasm-exceptions uses the native WebAssembly exception-handling proposal
+# (Chrome 95+, Firefox 100+, Safari 15.2+, Node 18+). The alternative,
+# -sDISABLE_EXCEPTION_CATCHING=0, selects emscripten's *JavaScript* exception
+# ABI, which wraps every call that might unwind in an invoke_* trampoline —
+# the audio hot path included.
+#
+# Compiling upstream without either flag is not a neutral choice: its internal
+# try/catch blocks are then compiled not to catch, so a parse error that
+# libsidplayfp handles and reports through its status escapes to JavaScript as
+# an opaque exception instead.
+#
+# It has to be identical for libresidfp, libsidplayfp and the bindings, because
+# mixing the two ABIs across a static archive does not link. Hence one variable
+# applied to all three. LIBSIDPLAYFP_WASM_LEGACY_EH=1 selects the JavaScript ABI
+# for a runtime that predates the proposal.
+if [[ "${LIBSIDPLAYFP_WASM_LEGACY_EH:-0}" == "1" ]]; then
+    EH_FLAGS="-sDISABLE_EXCEPTION_CATCHING=0"
+else
+    EH_FLAGS="-fwasm-exceptions"
+fi
+echo "exception ABI: ${EH_FLAGS}"
+
 autoreconf -vfi
 emconfigure ./configure \
     --prefix="${SYSROOT_PREFIX}" \
@@ -101,7 +156,7 @@ emconfigure ./configure \
     --enable-static \
     --disable-dependency-tracking \
     CFLAGS="-O3 ${EXTRA_FLAGS}" \
-    CXXFLAGS="-O3 ${EXTRA_FLAGS}"
+    CXXFLAGS="-O3 ${EH_FLAGS} ${EXTRA_FLAGS}"
 # libresidfp's configure hard-codes `-ffast-math -fno-unsafe-math-optimizations`
 # into RESIDFP_CXXFLAGS (configure.ac), and appends them after any value passed
 # in, so they cannot be overridden on the configure line. Rewriting the
@@ -128,7 +183,7 @@ echo "pkg-config sees libresidfp $(pkg-config --modversion libresidfp)"
 # ---------------------------------------------------------------------------
 # 2. Cross-compile libsidplayfp against it.
 # ---------------------------------------------------------------------------
-sync_repo "${GIT_URL}" "${CACHE_REPO}" "${LIBSIDPLAYFP_REF}"
+sync_repo "${GIT_URL}" "${CACHE_REPO}" "${LIBSIDPLAYFP_REF}" "${LIBSIDPLAYFP_COMMIT}"
 echo "libsidplayfp upstream pinned at ${LIBSIDPLAYFP_REF} ($(git -C "${CACHE_REPO}" rev-parse --short HEAD))"
 
 rsync -a --delete "${CACHE_REPO}/" "${BUILD_ROOT}/"
@@ -154,7 +209,7 @@ emconfigure ./configure \
     --without-usbsid \
     --disable-dependency-tracking \
     CFLAGS="-O3 ${EXTRA_FLAGS}" \
-    CXXFLAGS="-O3 ${EXTRA_FLAGS}" \
+    CXXFLAGS="-O3 ${EH_FLAGS} ${EXTRA_FLAGS}" \
     RESIDFP_CFLAGS="$(pkg-config --cflags libresidfp)" \
     RESIDFP_LIBS="$(pkg-config --libs libresidfp)"
 
@@ -176,6 +231,18 @@ if [[ "${SID_ENGINE}" == "sidlite" ]]; then
     ENGINE_FLAGS="-DSIDFLOW_SID_ENGINE_SIDLITE=1"
 fi
 
+# Release link flags.
+#
+# Emscripten turns assertions off at -O3 for a reason: they cost a check on
+# every runtime call. LIBSIDPLAYFP_WASM_DEBUG=1 selects the diagnostic build
+# without editing this file.
+if [[ "${LIBSIDPLAYFP_WASM_DEBUG:-0}" == "1" ]]; then
+    echo "building the diagnostic (assertions on) artifact"
+    OPTIMISATION_FLAGS=(-sASSERTIONS=2 -O1 -g2)
+else
+    OPTIMISATION_FLAGS=(-sASSERTIONS=0 -O3)
+fi
+
 em++ bindings.cpp src/.libs/libsidplayfp.a \
     ${ENGINE_FLAGS} \
     -I./src \
@@ -186,15 +253,15 @@ em++ bindings.cpp src/.libs/libsidplayfp.a \
     $(pkg-config --cflags libresidfp) \
     $(pkg-config --libs libresidfp) \
     ${EXTRA_FLAGS} \
-    --bind -O3 \
+    --bind \
+    ${EH_FLAGS} \
+    "${OPTIMISATION_FLAGS[@]}" \
     -sMODULARIZE=1 \
     -sEXPORT_NAME="createLibsidplayfp" \
     -sEXPORT_ES6=1 \
     -sALLOW_MEMORY_GROWTH=1 \
-    -sDISABLE_EXCEPTION_CATCHING=0 \
     -sFORCE_FILESYSTEM=1 \
-    -sASSERTIONS=1 \
-  -sENVIRONMENT=web,worker,node \
+    -sENVIRONMENT=web,worker,node \
     -sDEFAULT_LIBRARY_FUNCS_TO_INCLUDE='[$ccall,$cwrap]' \
     -sEXPORTED_RUNTIME_METHODS='[FS,PATH,cwrap,ccall]' \
     -o "${OUTPUT_ROOT}/libsidplayfp.js"
@@ -202,9 +269,9 @@ em++ bindings.cpp src/.libs/libsidplayfp.a \
 # ---------------------------------------------------------------------------
 # 3. Assert the artifact really is what we think it is.
 #
-# For a long time every published artifact was silently SIDLite because
-# HAVE_RESIDFP was never defined. Check the built binary, not the build inputs,
-# so this cannot regress unnoticed again.
+# An artifact can end up as SIDLite whenever HAVE_RESIDFP is undefined, and
+# nothing about the build output says so. Check the built binary, not the build
+# inputs, so the claim is about what shipped.
 # ---------------------------------------------------------------------------
 # Materialise the symbol dump first: piping `strings` into `grep -q` makes grep
 # exit on the first match, which SIGPIPEs strings, which under `set -o pipefail`
@@ -237,103 +304,27 @@ node /opt/libsidplayfp-wasm/scripts/smoke-render.mjs "${OUTPUT_ROOT}" /opt/libsi
 
 cp COPYING "${OUTPUT_ROOT}/LICENSE"
 
-cat <<'JSON' >"${OUTPUT_ROOT}/package.json"
-{
-  "name": "libsidplayfp-wasm",
-  "version": "0.1.0",
-  "description": "WebAssembly build of libsidplayfp with embind bindings for TypeScript projects.",
-  "type": "module",
-  "main": "./libsidplayfp.js",
-  "module": "./libsidplayfp.js",
-  "types": "./libsidplayfp.d.ts",
-  "sideEffects": false
-}
-JSON
+# The artifact's package metadata, type surface and README come from checked-in
+# files, so the public contract is reviewed alongside bindings.cpp instead of
+# living in an un-type-checked heredoc emitted once per engine. The version is
+# read from the real package.json.
+PACKAGE_VERSION="$(node -p "require('/opt/libsidplayfp-wasm/package.json').version")"
+node -e '
+const { writeFileSync } = require("node:fs");
+const [target, version] = process.argv.slice(1);
+writeFileSync(target, `${JSON.stringify({
+  name: "libsidplayfp-wasm",
+  version,
+  description: "WebAssembly build of libsidplayfp with embind bindings for TypeScript projects.",
+  type: "module",
+  main: "./libsidplayfp.js",
+  module: "./libsidplayfp.js",
+  types: "./libsidplayfp.d.ts",
+  sideEffects: false,
+}, null, 2)}\n`);
+' "${OUTPUT_ROOT}/package.json" "${PACKAGE_VERSION}"
 
-cat <<'DTS' >"${OUTPUT_ROOT}/libsidplayfp.d.ts"
-export interface SidPlayerContextOptions {
-  locateFile?(path: string, prefix?: string): string | URL;
-  [key: string]: unknown;
-}
-
-export type SidTuneInfo = Record<string, unknown> | null;
-export type EngineInfo = Record<string, unknown> | null;
-
-export class SidPlayerContext {
-  constructor();
-  configure(sampleRate: number, stereo: boolean): boolean;
-  loadSidBuffer(buffer: Uint8Array | ArrayBufferView): boolean;
-  loadSidFile(path: string): boolean;
-  selectSong(song: number): number;
-  render(cycles: number): Int16Array | null;
-  reset(): boolean;
-  hasTune(): boolean;
-  isStereo(): boolean;
-  getChannels(): number;
-  getSampleRate(): number;
-  getTuneInfo(): SidTuneInfo;
-  getEngineInfo(): EngineInfo;
-  getLastError(): string;
-  /**
-   * Supply the C64 system ROMs. Without them libsidplayfp initialises a tune
-   * but never advances it. Sizes are exact: KERNAL 8192, BASIC 8192,
-   * CHARGEN 4096 bytes. Pass nulls to clear.
-   */
-  setSystemROMs(
-    kernal?: Uint8Array | ArrayBufferView | null,
-    basic?: Uint8Array | ArrayBufferView | null,
-    chargen?: Uint8Array | ArrayBufferView | null
-  ): boolean;
-  /** Record every SID register write during render(). */
-  setSidWriteTraceEnabled(enabled: boolean): void;
-  getAndClearSidWriteTraces(): Array<{
-    sidNumber: number;
-    address: number;
-    value: number;
-    cyclePhi1: number;
-  }>;
-  /** Release the C++ object. Embind handles are not garbage collected. */
-  delete(): void;
-}
-
-export interface LibsidplayfpWasmModule {
-  FS: any;
-  PATH: any;
-  SidPlayerContext: typeof SidPlayerContext;
-  /** Builder baked into this artifact: "WasmReSIDfp" or "WasmSIDLite". */
-  getSidEngineName(): string;
-}
-
-export default function createLibsidplayfp(moduleConfig?: SidPlayerContextOptions): Promise<LibsidplayfpWasmModule>;
-DTS
-
-cat <<'MD' >"${OUTPUT_ROOT}/README.md"
-# libsidplayfp WebAssembly Build
-
-This bundle is produced by the Docker build located in `packages/libsidplayfp-wasm/`. It exposes
-`SidPlayerContext` through an embind wrapper so you can drive the C64 SID player
-from JavaScript or TypeScript.
-
-## Quick Start
-
-```ts
-import createLibsidplayfp from "./libsidplayfp.js";
-
-const module = await createLibsidplayfp();
-const player = new module.SidPlayerContext();
-
-const response = await fetch("Team_Patrol.sid");
-const buffer = new Uint8Array(await response.arrayBuffer());
-
-if (!player.loadSidBuffer(buffer)) {
-  throw new Error(player.getLastError());
-}
-
-const samples = player.render(20000); // Int16Array with PCM samples
-```
-
-The generated module supports both browsers and Node.js. When using filesystem
-paths, mount files into Emscripten's virtual FS (`FS`).
-MD
+cp /opt/libsidplayfp-wasm/src/bindings/libsidplayfp.d.ts "${OUTPUT_ROOT}/libsidplayfp.d.ts"
+cp /opt/libsidplayfp-wasm/src/bindings/ARTIFACT.md "${OUTPUT_ROOT}/README.md"
 
 rm -rf "${BUILD_ROOT}"

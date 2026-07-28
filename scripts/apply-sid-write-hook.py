@@ -3,29 +3,29 @@
 
 Why this exists
 ---------------
-sidflow needs to observe SID register writes (packages/sidflow-classify uses them
-for native-feature extraction). The previous implementation did this with a
-`TracingSidEmu` class in bindings.cpp: a `libsidplayfp::sidemu` subclass that
-wrapped a real emulation and mirrored its state with
+Hosts need to observe SID register writes; SIDFlow, for instance, extracts
+native features from them. Tracing must not be able to alter the audio, so it is
+a nullable function pointer consulted at the single funnel every CPU SID write
+already passes through. The audio path stays upstream's own emulation object,
+byte for byte, and with the hook unset — the default — the emulation is exactly
+upstream's.
+
+Why not subclass sidemu
+-----------------------
+Wrapping a real emulation in a `libsidplayfp::sidemu` subclass and mirroring its
+state does not work, and fails audibly rather than loudly:
 
     m_buffer = inner->buffer();
     bufferpos(inner->bufferpos());
 
-That was broken, and audibly so. `sidemu::bufferpos()` is **not virtual**
-(src/sidemu.h), and src/player.cpp drives the consume cycle through it —
-`sampleCount = s->bufferpos();` then `s->bufferpos(0);`. Those calls landed on
-the *outer* wrapper, while samples were produced into the *inner* emulation's
-buffer (`m_bufferpos += m_sid.clock(cycles, m_buffer + m_bufferpos)`). So
-inner's m_bufferpos was never reset: it grew without bound, the write cursor
-walked off the end of inner's buffer, and every sync handed the mixer an
-ever-growing stale sample count.
-
-The fix is structural: there is no wrapper any more. The audio path is
-upstream's own emulation object, byte for byte. Tracing is a nullable function
-pointer consulted at the single funnel every CPU SID write already passes
-through, so the tracing feature *cannot* alter audio — with the hook unset (the
-default, and the only mode the C64 Commander app uses) the emulation is exactly
-upstream's.
+`sidemu::bufferpos()` is **not virtual** (src/sidemu.h), and src/player.cpp
+drives the consume cycle through it — `sampleCount = s->bufferpos();` then
+`s->bufferpos(0);`. Those calls land on the *outer* wrapper, while samples are
+produced into the *inner* emulation's buffer
+(`m_bufferpos += m_sid.clock(cycles, m_buffer + m_bufferpos)`). Inner's
+m_bufferpos is then never reset: it grows without bound, the write cursor walks
+off the end of inner's buffer, and every sync hands the mixer an ever-growing
+stale sample count.
 
 Why sidemu::writeReg
 --------------------
@@ -36,8 +36,7 @@ in scope for the PHI1 timestamp. Hooking here means one patch site instead of
 one per builder.
 
 The hook is invoked immediately before `write(addr, data)`, so it observes the
-same post-mute/post-filter-mask value the emulation itself receives — matching
-the semantics of the wrapper it replaces.
+same post-mute/post-filter-mask value the emulation itself receives.
 
 This patch is applied to a pinned upstream checkout. It fails loudly if an
 anchor is missing rather than silently producing an artifact with no tracing.

@@ -1,6 +1,6 @@
 {
   "name": "@chrisgleissner/libsidplayfp-wasm",
-  "version": "3.0.2",
+  "version": "0.1.0",
   "description": "Verified WebAssembly builds of libsidplayfp with TypeScript playback bindings.",
   "license": "GPL-2.0-or-later",
   "type": "module",
@@ -57,7 +57,11 @@
     "test:parity": "bun run scripts/native-parity.mjs",
     "test:parity:edge": "bun run scripts/native-parity.mjs --corpus edge",
     "check:package": "bun run scripts/check-package.mjs",
-    "check:coverage": "bun run scripts/check-coverage.mjs"
+    "check:coverage": "bun run scripts/check-coverage.mjs",
+    "version:verify": "node scripts/upstream.mjs verify",
+    "version:bump": "node scripts/upstream.mjs bump",
+    "version:adopt-mirror": "node scripts/upstream.mjs adopt-mirror",
+    "version:constants": "node scripts/upstream.mjs emit-constants"
   },
   "devDependencies": {
     "@playwright/test": "^1.55.1",

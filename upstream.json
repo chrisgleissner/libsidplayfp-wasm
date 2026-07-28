@@ -1,5 +1,9 @@
 {
   "schemaVersion": 1,
+  "versioning": {
+    "mode": "independent",
+    "note": "See 'Versioning' in README.md. Switch to 'mirror' with: node scripts/upstream.mjs adopt-mirror"
+  },
   "libsidplayfp": {
     "repository": "https://github.com/libsidplayfp/libsidplayfp",
     "ref": "v3.0.2",

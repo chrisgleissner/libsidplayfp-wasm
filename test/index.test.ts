@@ -25,7 +25,9 @@ describe("loadLibsidplayfp", () => {
     });
 
     it("loads with custom locateFile", async () => {
-        const customPath = new URL("../dist/libsidplayfp.wasm", import.meta.url).href;
+        // The glue and the binary are a matched pair: the default engine is
+        // SIDLite, so its module must be given the SIDLite binary.
+        const customPath = new URL("../dist/sidlite/libsidplayfp.wasm", import.meta.url).href;
         const module = await loadLibsidplayfp({
             locateFile: () => customPath,
         });
@@ -118,7 +120,9 @@ describe("WASM path override", () => {
     });
 
     it("custom locateFile takes precedence over env vars", async () => {
-        const customPath = new URL("../dist/libsidplayfp.wasm", import.meta.url).href;
+        // The glue and the binary are a matched pair: the default engine is
+        // SIDLite, so its module must be given the SIDLite binary.
+        const customPath = new URL("../dist/sidlite/libsidplayfp.wasm", import.meta.url).href;
         const module = await loadLibsidplayfp({
             locateFile: () => customPath,
         });

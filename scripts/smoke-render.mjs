@@ -7,8 +7,7 @@
 //
 //   * reSIDfp's filter-table threads throwing `thread constructor failed` on
 //     the first tune load, so the engine never produced a sample;
-//   * the old TracingSidEmu wrapper handing the mixer a stale, ever-growing
-//     sample count.
+//   * a sidemu wrapper handing the mixer a stale, ever-growing sample count.
 //
 // So: load a tune, render, and require the output to be audible and sane.
 //

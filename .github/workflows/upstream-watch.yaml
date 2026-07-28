@@ -42,7 +42,12 @@ jobs:
           COMMIT: ${{ steps.upstream.outputs.commit }}
         run: |
           set -euo pipefail
-          node scripts/upstream.mjs update --ref "$TAG" --commit "$COMMIT"
+          PACKAGE=$(node -p "require('./package.json').name")
+          # Published versions decide whether the mirror can take upstream's
+          # number verbatim or has to move past one a downstream fix consumed.
+          PUBLISHED=$(npm view "$PACKAGE" versions --json --registry=https://registry.npmjs.org 2>/dev/null || echo '[]')
+          node scripts/upstream.mjs update --ref "$TAG" --commit "$COMMIT" --published "$PUBLISHED"
+          node scripts/upstream.mjs verify --published "$PUBLISHED"
           bun install --frozen-lockfile
           git diff --check
 
@@ -55,17 +60,27 @@ jobs:
         run: |
           set -euo pipefail
           BRANCH="automation/libsidplayfp-${TAG}"
+          VERSION=$(node -p "require('./package.json').version")
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git checkout -B "$BRANCH"
-          git add upstream.json package.json bun.lock
+          git add upstream.json package.json bun.lock src/upstream-versions.ts
           git commit -m "chore: update libsidplayfp to ${TAG}"
           git push --force-with-lease origin "$BRANCH"
           if gh pr view "$BRANCH" --json url --jq .url >/dev/null 2>&1; then
             exit 0
           fi
+          if [ "$VERSION" = "${TAG#v}" ]; then
+            VERSION_NOTE="This release mirrors upstream exactly: \`${VERSION}\`."
+          else
+            VERSION_NOTE="Upstream \`${TAG#v}\` is already taken by a downstream fix, so this release takes the next free patch, \`${VERSION}\`. See \"Versioning\" in the README."
+          fi
           gh pr create \
             --base main \
             --head "$BRANCH" \
             --title "chore: update libsidplayfp to ${TAG}" \
-            --body "Automated stable-release update pinned to ${COMMIT}. CI rebuilds both engines and checks fast native parity. Merging this PR invokes the exhaustive release qualification; no package is published before that gate passes."
+            --body "Automated stable-release update pinned to ${COMMIT}.
+
+          ${VERSION_NOTE}
+
+          Verify rebuilds both engines and checks fast native parity. Merging this PR starts the release qualification; nothing is published before that gate passes, and \`latest\` moves only after the published package has been reinstalled from the registry and smoke-tested."

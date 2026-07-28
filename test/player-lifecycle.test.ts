@@ -171,9 +171,13 @@ describe("SidAudioEngine lifecycle and cache boundaries", () => {
     );
     expect(engine.getCachedSegment(-1, 0.1)).toBeNull();
     expect(engine.getCachedSegment(0.5, 0.2)).toBeNull();
-    expect(await engine.seekSeconds(0.4)).toBe(4);
+    // Seeking reloads and fast-forwards the live context and reports the
+    // samples it actually skipped. The cache is a separate render pass, so it
+    // never stands in for the playback position.
     expect(await engine.seekSeconds(0)).toBe(0);
-    expect(await engine.seekSeconds(0.8, 1)).toBe(3);
+    // 0.4 s at 10 Hz mono is a 4-sample target; the reloaded context supplies 3
+    // before it runs dry, and the shortfall is reported rather than hidden.
+    expect(await engine.seekSeconds(0.4)).toBe(3);
     engine.dispose();
   });
 
@@ -264,10 +268,10 @@ describe("SidAudioEngine lifecycle and cache boundaries", () => {
     expect(await engine.renderFrames(1)).toEqual(new Int16Array(0));
     expect(await engine.renderSeconds(0.1)).toEqual(new Int16Array(0));
     await expect(engine.renderSeconds(0)).rejects.toThrow(
-      "Duration must be greater than zero",
+      "Duration must be a finite number of seconds above zero",
     );
     await expect(engine.renderFrames(0)).rejects.toThrow(
-      "Frame count must be greater than zero",
+      "Frame count must be a finite number above zero",
     );
     engine.dispose();
   });

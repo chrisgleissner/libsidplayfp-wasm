@@ -11,7 +11,6 @@
  * Why a purpose-built native reference rather than the distro `sidplayfp`:
  * distros ship libsidplayfp 2.x, so comparing against `/usr/bin/sidplayfp`
  * conflates "our build is wrong" with "upstream changed between major versions".
- * That mistake cost real time before it was spotted.
  *
  *   bun run scripts/native-parity.mjs                  # verify
  *   bun run scripts/native-parity.mjs --update-goldens # verify, then re-record
@@ -39,12 +38,12 @@ const GOLDENS_PATH = path.join(PACKAGE_ROOT, "test/fixtures/engine-goldens.json"
  *
  * The two builds are NOT bit-identical and are not expected to be: emscripten's
  * musl-derived libm differs from glibc's in the last ulp, and those differences
- * reach reSIDfp's filter and resampler table generation. Measured on the
- * known-good build, the gap is correlation > 0.99999 with an error floor of
- * −75 to −87 dBFS — inaudible, and far below the SID's own noise floor.
+ * reach reSIDfp's filter and resampler table generation. On a healthy build the
+ * gap is correlation > 0.99999 with an error floor of −75 to −87 dBFS —
+ * inaudible, and far below the SID's own noise floor.
  *
- * For scale: the heap-use-after-free that made the engine 10 dB too bright
- * measured correlation 0.75 and roughly −20 dBFS. So −60 dBFS leaves ~15 dB of
+ * For scale: a mixer reading freed memory, which sounds 10 dB too bright,
+ * measures correlation 0.75 and roughly −20 dBFS. So −60 dBFS leaves ~15 dB of
  * headroom over observed noise while still catching a real defect by ~40 dB.
  */
 const THRESHOLDS = {
@@ -210,9 +209,9 @@ console.log();
 if (failures > 0) {
   console.error(
     `${failures} fixture(s) failed the native parity thresholds.\n` +
-      `The wasm engine no longer matches a native build of the same library. This is how the\n` +
-      `heap-use-after-free in SidPlayerContext::selectSong() was caught. Reproduce it under\n` +
-      `AddressSanitizer, which names the offending access directly:\n` +
+      `The wasm engine does not match a native build of the same library. A mixer holding\n` +
+      `freed chip buffers is the classic cause. Reproduce it under AddressSanitizer, which\n` +
+      `names the offending access directly:\n` +
       `    SIDFLOW_EXTRA_FLAGS=-fsanitize=address bun run build:wasm`,
   );
   process.exit(1);

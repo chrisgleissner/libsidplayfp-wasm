@@ -37,7 +37,13 @@ describe.each(ENGINES)(
           ),
         ).toBe(false);
         expect(context.getLastError()).toContain("8192");
-        expect(() => context.loadSidBuffer(new Uint8Array(128))).toThrow();
+        // libsidplayfp reports a malformed tune through its status, so the
+        // binding reports it as a false return plus a readable getLastError().
+        expect(context.loadSidBuffer(new Uint8Array(128))).toBe(false);
+        expect(context.getLastError().length).toBeGreaterThan(0);
+        expect(context.hasError()).toBe(true);
+        context.clearError();
+        expect(context.hasError()).toBe(false);
       } finally {
         context.delete();
       }
