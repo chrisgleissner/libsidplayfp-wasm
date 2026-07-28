@@ -1,6 +1,6 @@
 # Third-party notices
 
-`@chrisgleissner/libsidplayfp-wasm` distributes compiled WebAssembly binaries
+`libsidplayfp-wasm` distributes compiled WebAssembly binaries
 (`dist/libsidplayfp.wasm`, `dist/sidlite/libsidplayfp.wasm`) and their generated
 JavaScript loaders. Those files incorporate the third-party components listed
 below. This file records their licences and copyright notices as those licences
@@ -166,22 +166,23 @@ consists of:
    `docker/Dockerfile`, `docker/entrypoint.sh`, and `scripts/build*.sh`, from
    the same repository.
 
-You can obtain all of it in three ways:
+**The source is in this package.** `dist/complete-source.tar.gz` contains all
+four items above: both upstream projects at their exact pinned commits, the
+scripts that modify them, the bindings, and the build. It accompanies the object
+code it corresponds to, which is what section 3(a) of the GPL asks for.
 
-* **From the GitHub release.** Every release carries a
-  `libsidplayfp-wasm-<version>-complete-source.tar.gz` asset containing items
-  1–4 above, so the source is offered from the same place as the binaries.
-* **From the repository.** Clone
-  <https://github.com/chrisgleissner/libsidplayfp-wasm> at the tag matching this
-  package version and run `bun run build:wasm`, which fetches the pinned
-  upstream commits and reproduces the distributed binaries.
-* **By written offer.** For at least three years from the date this version was
-  distributed, the maintainer will give any third party a complete
-  machine-readable copy of the corresponding source, on a medium customarily
-  used for software interchange, for no more than the cost of physically
-  performing the distribution. Request it by opening an issue at
-  <https://github.com/chrisgleissner/libsidplayfp-wasm/issues> or by contacting
-  the maintainer listed in `package.json`.
+The same archive is attached to every GitHub release as
+`libsidplayfp-wasm-<version>-complete-source.tar.gz`, and can also be
+reconstructed from <https://github.com/chrisgleissner/libsidplayfp-wasm> at the
+tag matching this package version by running `bun run build:source`.
+
+To rebuild the binaries from it:
+
+```bash
+tar -xzf node_modules/libsidplayfp-wasm/dist/complete-source.tar.gz
+cd libsidplayfp-wasm-*-complete-source/libsidplayfp-wasm
+bash scripts/build-all-wasm.sh
+```
 
 ---
 

@@ -1,6 +1,6 @@
 # Third-party notices
 
-`@chrisgleissner/libsidplayfp-wasm` distributes compiled WebAssembly binaries
+`libsidplayfp-wasm` distributes compiled WebAssembly binaries
 (`dist/libsidplayfp.wasm`, `dist/sidlite/libsidplayfp.wasm`) and their generated
 JavaScript loaders. Those files incorporate the third-party components listed
 below. This file records their licences and copyright notices as those licences
@@ -179,7 +179,7 @@ tag matching this package version by running `bun run build:source`.
 To rebuild the binaries from it:
 
 ```bash
-tar -xzf node_modules/@chrisgleissner/libsidplayfp-wasm/dist/complete-source.tar.gz
+tar -xzf node_modules/libsidplayfp-wasm/dist/complete-source.tar.gz
 cd libsidplayfp-wasm-*-complete-source/libsidplayfp-wasm
 bash scripts/build-all-wasm.sh
 ```

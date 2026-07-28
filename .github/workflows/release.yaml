@@ -6,7 +6,7 @@ name: Qualify and release
 #   qualify    rebuild, full suite three times, coverage, browsers, package,
 #              HVSC edge sweep, native differential parity, then a smoke test of
 #              the exact tarball that will be uploaded
-#   publish    npm (OIDC trusted publishing, no token) and GitHub Packages
+#   publish    npm, via OIDC trusted publishing with no stored credential
 #   smoke      reinstall that version from the registry and play a SID
 #   promote    the git tag and GitHub release, only after the registry copy has
 #              proved itself
@@ -191,7 +191,6 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      packages: write
       id-token: write
     steps:
       - uses: actions/checkout@v4
@@ -290,28 +289,6 @@ jobs:
           echo "::warning::Trusted publishing did not authenticate; falling back to the bootstrap NPM_TOKEN. Run 'npm trust github $PACKAGE --repo ${GITHUB_REPOSITORY} --file release.yaml' and delete the NPM_TOKEN secret."
           npm config set //registry.npmjs.org/:_authToken "$NPM_TOKEN"
           npm publish "$TARBALL" --access public
-
-      - name: Publish to GitHub Packages
-        env:
-          TARBALL: ${{ steps.artifact.outputs.tarball }}
-          VERSION: ${{ needs.preflight.outputs.version }}
-          GH_PACKAGES_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          PACKAGE=$(node -p "require('./package.json').name")
-          # actions/setup-node exports NPM_CONFIG_USERCONFIG, so npm reads its
-          # own temp file and not ~/.npmrc. Point the variable at a file this
-          # step owns rather than writing one npm will never read.
-          NPMRC="$RUNNER_TEMP/github-packages.npmrc"
-          printf '%s\n' \
-            "@chrisgleissner:registry=https://npm.pkg.github.com" \
-            "//npm.pkg.github.com/:_authToken=${GH_PACKAGES_TOKEN}" > "$NPMRC"
-          export NPM_CONFIG_USERCONFIG="$NPMRC"
-          if npm view "$PACKAGE@$VERSION" version --registry=https://npm.pkg.github.com >/dev/null 2>&1; then
-            echo "$PACKAGE@$VERSION is already on GitHub Packages."
-            exit 0
-          fi
-          npm publish "$TARBALL" --registry=https://npm.pkg.github.com
 
       - name: Attest the release artifact
         uses: actions/attest-build-provenance@v2

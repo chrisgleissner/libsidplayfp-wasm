@@ -1,6 +1,6 @@
 # libsidplayfp WASM
 
-[![npm](https://img.shields.io/npm/v/@chrisgleissner/libsidplayfp-wasm.svg)](https://www.npmjs.com/package/@chrisgleissner/libsidplayfp-wasm)
+[![npm](https://img.shields.io/npm/v/libsidplayfp-wasm.svg)](https://www.npmjs.com/package/libsidplayfp-wasm)
 [![Build](https://img.shields.io/github/actions/workflow/status/chrisgleissner/libsidplayfp-wasm/ci.yaml)](https://github.com/chrisgleissner/libsidplayfp-wasm/actions/workflows/ci.yaml)
 [![Codecov](https://codecov.io/gh/chrisgleissner/libsidplayfp-wasm/graph/badge.svg)](https://app.codecov.io/gh/chrisgleissner/libsidplayfp-wasm)
 [![License: GPL v2 or later](https://img.shields.io/badge/License-GPL%20v2%2B-blue.svg)](https://www.gnu.org/licenses/old-licenses/gpl-2.0.en.html)
@@ -15,13 +15,13 @@ build is compared sample-for-sample against a native build of the same source
 before it is published.
 
 ```bash
-npm install @chrisgleissner/libsidplayfp-wasm
+npm install libsidplayfp-wasm
 ```
 
 ## Play a SID
 
 ```ts
-import { SidAudioEngine } from "@chrisgleissner/libsidplayfp-wasm";
+import { SidAudioEngine } from "libsidplayfp-wasm";
 
 const engine = new SidAudioEngine();
 await engine.loadSidBuffer(new Uint8Array(sidFileBytes));
@@ -115,7 +115,7 @@ The default export gives you libsidplayfp's `SidPlayerContext` directly. It is
 the same object `SidAudioEngine` drives, minus the buffer management.
 
 ```ts
-import loadLibsidplayfp from "@chrisgleissner/libsidplayfp-wasm";
+import loadLibsidplayfp from "libsidplayfp-wasm";
 
 const module = await loadLibsidplayfp({ engine: "residfp" });
 const player = new module.SidPlayerContext();
@@ -175,7 +175,7 @@ The package version and the libsidplayfp version inside it are related but not
 always identical, so the build states what it contains:
 
 ```ts
-import { LIBSIDPLAYFP_VERSION, LIBRESIDFP_VERSION } from "@chrisgleissner/libsidplayfp-wasm";
+import { LIBSIDPLAYFP_VERSION, LIBRESIDFP_VERSION } from "libsidplayfp-wasm";
 ```
 
 While this distribution settles, the package keeps its own `0.x` line: an

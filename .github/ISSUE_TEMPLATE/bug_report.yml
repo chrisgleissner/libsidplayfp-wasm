@@ -24,7 +24,7 @@ body:
 
         ```ts
         import { PACKAGE_VERSION, LIBSIDPLAYFP_VERSION, LIBRESIDFP_VERSION, UPSTREAM_COMMITS }
-          from "@chrisgleissner/libsidplayfp-wasm";
+          from "libsidplayfp-wasm";
         console.log({ PACKAGE_VERSION, LIBSIDPLAYFP_VERSION, LIBRESIDFP_VERSION, UPSTREAM_COMMITS });
         ```
 
@@ -137,7 +137,7 @@ body:
         happened instead. A link to a runnable repository or sandbox is ideal.
       placeholder: |
         ```ts
-        import { SidAudioEngine } from "@chrisgleissner/libsidplayfp-wasm";
+        import { SidAudioEngine } from "libsidplayfp-wasm";
         const engine = new SidAudioEngine({ engine: "sidlite" });
         // ...
         ```

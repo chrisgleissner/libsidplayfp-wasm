@@ -26,7 +26,7 @@ try {
     ? [{ filename: path.basename(suppliedTarball) }]
     : JSON.parse(run("npm", ["pack", "--json", "--ignore-scripts", "--pack-destination", scratch]));
   const tarball = suppliedTarball ? path.resolve(suppliedTarball) : path.join(scratch, packed[0].filename);
-  const packageName = "@chrisgleissner/libsidplayfp-wasm";
+  const packageName = "libsidplayfp-wasm";
 
   const entries = run("tar", ["-tzf", tarball]).trim().split("\n");
 
