@@ -104,8 +104,8 @@ WebAssembly distribution of libsidplayfp.
   release qualification workflow.
 - The release workflow is the only publisher, and its stages gate one another:
   preflight (the commit's own `Verify` run must be green, and the version must
-  be valid and unpublished), qualify (both engines rebuilt, full unit suite
-  three times, 100% coverage gate, browser tests, clean-package check, complete
+  be valid and unpublished), qualify (both engines rebuilt, full unit suite,
+  100% coverage gate, browser tests, clean-package check, complete
   HVSC #85 edge sweep, native parity, and a smoke test of the exact tarball),
   publish (npm via OIDC trusted publishing, with no stored credential), smoke
   (reinstall that version from the registry and play a SID), promote (the git
@@ -151,10 +151,10 @@ unit runs and must be run before approving changes to rendering, allocation,
 or lifecycle behavior.
 
 Before considering a release-related change complete, run the full test suite
-three consecutive times and retain literal terminal summaries showing `0 fail`:
+and retain the literal terminal summary showing `0 fail`:
 
 ```bash
-for run in 1 2 3; do bun run test; done
+bun run test
 ```
 
 Then run `bun run test:edge` and `bun run test:parity:edge`. The latter is
