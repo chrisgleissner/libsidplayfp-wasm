@@ -214,21 +214,31 @@ settled by comparison against a reference, not by listening.
 - The packed tarball is installed into a clean project and made to play a SID
   under Node 20, 22 and 24.
 
-**Every release, additionally**
+**Every release**
+
+A release does not repeat the checks above — it refuses to start unless that
+commit's own run of them was green. What it adds is everything about the
+artifact rather than the source:
+
+- Engines rebuilt from immutable upstream commits; the build aborts if a tag no
+  longer resolves to the pinned commit, and each binary is checked to contain the
+  engine it claims and not the other.
+- The exact tarball that will be published is installed into a clean project and
+  made to play a SID **before** it is published.
+- After publishing, that exact version is **reinstalled from npm** and made to
+  play a SID. The tag and release are created only if that succeeds.
+
+**Weekly, and whenever the engine's own bytes change**
 
 - **1,678 tunes** selected from HVSC #85's 61,157 — every multi-SID, every
   BASIC-driven RSID, every file with 32+ subtunes, plus 400 each sampled from
   the RSID and zero-play-address populations — rendered through both engines and
-  compared against native builds.
-- Engines rebuilt from immutable upstream commits; the build aborts if a tag no
-  longer resolves to the pinned commit, and each binary is checked to contain the
-  engine it claims and not the other.
-- After publishing, that exact version is **reinstalled from npm** and made to
-  play a SID. The tag and release are created only if that succeeds.
+  compared against native builds. This also runs on any pull request that
+  touches the upstream pins, the toolchain or the bindings.
+- A soak renders two hours of emulated playback per engine and requires the
+  WebAssembly heap to stay flat.
 
-A weekly soak renders two hours of emulated playback per engine and requires the
-WebAssembly heap to stay flat. Every release ships an SBOM, SHA-256 checksums,
-and build provenance.
+Every release ships an SBOM, SHA-256 checksums, and build provenance.
 
 ## ⚖️ Licence and attribution
 

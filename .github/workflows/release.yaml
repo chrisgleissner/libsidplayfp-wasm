@@ -3,9 +3,10 @@ name: Qualify and release
 # Release order is fixed and each step gates the next:
 #
 #   preflight  the commit's own CI is green, the version is valid and unpublished
-#   qualify    rebuild, full suite with coverage, browsers, package,
-#              HVSC edge sweep, native differential parity, then a smoke test of
-#              the exact tarball that will be uploaded
+#   qualify    rebuild both engines and smoke-test the exact tarball that will
+#              be published. The suite, browsers and native parity are not
+#              repeated here: preflight requires `Verify` to have passed all of
+#              them on this same commit.
 #   publish    npm, via OIDC trusted publishing with no stored credential
 #   smoke      reinstall that version from the registry and play a SID
 #   promote    the git tag and GitHub release, only after the registry copy has
@@ -126,7 +127,8 @@ jobs:
     needs: preflight
     if: needs.preflight.outputs.needed == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 180
+    # Sized for the WASM rebuild, which dominates. It measured 2m44s.
+    timeout-minutes: 30
     permissions:
       contents: read
     steps:
@@ -138,21 +140,14 @@ jobs:
         with:
           cache-key-prefix: release
 
-      - name: Run the full unit suite with coverage
-        run: bun run test:coverage
-
-      - name: Install browser runtime and test both engines
-        run: |
-          set -euo pipefail
-          bunx playwright install --with-deps chromium firefox webkit
-          bun run test:browser
-
-      - name: Sweep every HVSC #85 edge case with both WASM engines
-        run: bun run test:edge
-
-      - name: Compare every edge case with native libsidplayfp
-        run: bun run test:parity:edge
-
+      # No unit suite, no browsers, no parity here. `Verify` already ran every
+      # one of them on this exact commit, and preflight refuses to proceed unless
+      # that run was green — so repeating them cost four minutes of every release
+      # to re-answer a question already answered about identical bytes.
+      #
+      # What is left is the part `Verify` cannot do, because it is about the
+      # artifact rather than the source: pack the tarball that will actually be
+      # published, install it into a clean project, and make it play a SID.
       - name: Smoke-test the exact bytes that will be published
         run: bun run check:package
 

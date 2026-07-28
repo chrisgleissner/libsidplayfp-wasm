@@ -100,17 +100,24 @@ WebAssembly distribution of libsidplayfp.
 - `README.md` is written for users of the library. Release mechanics, tokens,
   and workflow internals belong here, not there.
 - `.github/workflows/upstream-watch.yaml` accepts only stable upstream GitHub
-  releases and opens an update PR. Merging that PR invokes the exhaustive
-  release qualification workflow.
+  releases and opens an update PR. That PR touches `upstream.json`, which is one
+  of the paths that triggers `.github/workflows/exhaustive.yaml`, so the full
+  HVSC sweep runs on it before it merges.
 - The release workflow is the only publisher, and its stages gate one another:
   preflight (the commit's own `Verify` run must be green, and the version must
-  be valid and unpublished), qualify (both engines rebuilt, full unit suite,
-  100% coverage gate, browser tests, clean-package check, complete
-  HVSC #85 edge sweep, native parity, and a smoke test of the exact tarball),
-  publish (npm via OIDC trusted publishing, with no stored credential), smoke
-  (reinstall that version from the registry and play a SID), promote (the git
-  tag and the GitHub release). GitHub Packages is not a target: it requires
-  scoped names, and this package is deliberately unscoped.
+  be valid and unpublished), qualify (both engines rebuilt, then the exact
+  tarball packed and smoke-tested), publish (npm via OIDC trusted publishing,
+  with no stored credential), smoke (reinstall that version from the registry
+  and play a SID), promote (the git tag and the GitHub release). GitHub Packages
+  is not a target: it requires scoped names, and this package is deliberately
+  unscoped.
+- **`qualify` deliberately does not re-run the unit suite, the browsers or
+  native parity.** `Verify` ran all of them on the identical commit and
+  preflight refuses to proceed unless that run was green, so repeating them
+  spent four minutes of every release re-answering a settled question about
+  bytes that had not moved. What `qualify` keeps is the part `Verify` cannot
+  do — proving the artifact itself. If you add a check here, first ask whether
+  it belongs in `Verify` instead.
 - npm's OIDC credential authenticates `npm publish` and nothing else, so a
   `next` -> `latest` staging step would need a long-lived token. Do not add one:
   the guard is smoke-testing the identical bytes before publish and the registry
@@ -157,9 +164,12 @@ and retain the literal terminal summary showing `0 fail`:
 bun run test
 ```
 
-Then run `bun run test:edge` and `bun run test:parity:edge`. The latter is
-intentionally a release-grade operation: it compares every selected HVSC edge
-case through both WASM engines against native builds at the same pins.
+`bun run test:edge` and `bun run test:parity:edge` sweep every selected HVSC
+edge case through both WASM engines, the latter against native builds at the
+same pins. They take roughly an hour together and are **not** part of a release.
+Run them — or let `.github/workflows/exhaustive.yaml` run them — when the
+engine's own bytes change: an upstream pin, a toolchain flag, a binding. For a
+change to TypeScript they cannot tell you anything the curated corpus does not.
 
 ## Definition of done
 

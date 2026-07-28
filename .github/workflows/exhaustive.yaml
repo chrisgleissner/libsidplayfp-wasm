@@ -1,0 +1,62 @@
+name: Exhaustive HVSC sweep
+
+# Every HVSC #85 edge case rendered through both engines, and every one of them
+# compared sample-for-sample against a native build of libsidplayfp at the same
+# pinned commits.
+#
+# This does not gate a release. It used to, and it cost about 53 minutes of every
+# one — a wide net for a narrow catch, because a release usually changes
+# TypeScript, and re-rendering 1,678 tunes cannot tell you anything new about
+# bytes that did not move. The curated fixtures in `Verify` isolate the same
+# behaviours deliberately and in about a minute.
+#
+# What the wide sweep is genuinely for is a change to the *engine*: an upstream
+# pin, a compiler flag, a binding. That is what `upstream-watch` raises and what
+# a manual dispatch covers, so those are the triggers, plus a weekly run to catch
+# anything that drifts on its own.
+
+on:
+  schedule:
+    - cron: "43 4 * * 0"
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Commit, branch or tag to sweep. Defaults to the default branch."
+        required: false
+        type: string
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      # The pins, the toolchain and the bindings — everything that decides the
+      # bytes of the artifact. A pull request that touches one of these gets the
+      # full sweep before it merges.
+      - "upstream.json"
+      - "docker/**"
+      - "src/bindings/**"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: exhaustive-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  sweep:
+    name: Every HVSC #85 edge case, both engines, against native
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref || github.sha }}
+
+      - uses: ./.github/actions/setup-build
+        with:
+          cache-key-prefix: exhaustive
+
+      - name: Sweep every HVSC #85 edge case with both WASM engines
+        run: bun run test:edge
+
+      - name: Compare every edge case with native libsidplayfp
+        run: bun run test:parity:edge
