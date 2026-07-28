@@ -72,10 +72,11 @@ jobs:
           set -euo pipefail
           SHA=$(git rev-parse HEAD)
           echo "Release commit: $SHA"
-          # The qualify job below re-runs everything, but it runs on its own
-          # machine. Refusing to release a commit whose Verify workflow is red
-          # means a regression cannot reach the registry just because a second,
-          # luckier run happened to pass.
+          # This is the gate. `qualify` no longer re-runs the suite, the
+          # browsers or native parity, so this check is the *only* thing
+          # standing between a red commit and the registry — it must stay
+          # strict, and it must stay first. It matches on this exact SHA, so a
+          # green run of some other commit cannot stand in for this one.
           for attempt in $(seq 1 60); do
             CONCLUSION=$(gh api "repos/${GITHUB_REPOSITORY}/actions/workflows/ci.yaml/runs?head_sha=${SHA}&per_page=1" \
               --jq '.workflow_runs[0].conclusion // "missing"')
