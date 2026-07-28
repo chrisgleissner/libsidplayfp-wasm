@@ -34,4 +34,10 @@ docker run \
     -v "${CACHE_DIR}:/opt/libsidplayfp-cache" \
     "${IMAGE_NAME}"
 
+# The emsdk image runs as root, so on Linux the artifacts land root-owned and the
+# host cannot overwrite them — `git checkout` of the committed dist/ included.
+docker run --rm --entrypoint chown \
+    -v "${DIST_DIR}:/dist" \
+    "${IMAGE_NAME}" -R "$(id -u):$(id -g)" /dist
+
 echo "Artifacts are available in ${DIST_DIR}"

@@ -28,8 +28,16 @@ export interface LoadLibsidplayfpOptions extends SidPlayerContextOptions {
 }
 export declare function resolveSidEngine(engine?: SidEngine): SidEngine;
 export declare function loadLibsidplayfp(options?: LoadLibsidplayfpOptions): Promise<LibsidplayfpWasmModule>;
-export type { LibsidplayfpWasmModule, SidPlayerContext, SidPlayerContextOptions } from "../dist/libsidplayfp.js";
+export type { C64Model, CiaModel, CombinedWaveforms, EmulationConfig, EngineInfo, FilterConfig, LibsidplayfpWasmModule, ResolvedEmulationConfig, SamplingMethod, SidModel, SidPlayerContext, SidPlayerContextOptions, SidTuneInfo, TuneClock, TuneCompatibility, TuneSidModel } from "../dist/libsidplayfp.js";
 export { SidAudioEngine } from "./player.js";
 export type { SidWriteTrace } from "./player.js";
+/**
+ * Which upstream releases this build contains.
+ *
+ * The npm version and the libsidplayfp version are the same number for a mirror
+ * release and can differ after a downstream-only fix, so these constants — not
+ * the package version — are the authority. See "Versioning" in the README.
+ */
+export { LIBRESIDFP_VERSION, LIBSIDPLAYFP_VERSION, PACKAGE_VERSION, UPSTREAM_COMMITS } from "./upstream-versions.js";
 export default loadLibsidplayfp;
 //# sourceMappingURL=index.d.ts.map

@@ -75,5 +75,13 @@ export async function loadLibsidplayfp(options = {}) {
     return await createModulePromise(options);
 }
 export { SidAudioEngine } from "./player.js";
+/**
+ * Which upstream releases this build contains.
+ *
+ * The npm version and the libsidplayfp version are the same number for a mirror
+ * release and can differ after a downstream-only fix, so these constants — not
+ * the package version — are the authority. See "Versioning" in the README.
+ */
+export { LIBRESIDFP_VERSION, LIBSIDPLAYFP_VERSION, PACKAGE_VERSION, UPSTREAM_COMMITS } from "./upstream-versions.js";
 export default loadLibsidplayfp;
 //# sourceMappingURL=index.js.map

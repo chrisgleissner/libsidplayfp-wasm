@@ -10,23 +10,20 @@ permissions:
 
 jobs:
   soak:
-    name: Two-hour dual-engine memory soak
+    # Two hours of *emulated* playback per engine, not two hours of wall clock.
+    # Rendering is roughly 90x realtime, so the job itself takes under ten
+    # minutes; the timeout is sized for the WASM rebuild that precedes it.
+    name: Dual-engine memory soak over two virtual hours
     runs-on: ubuntu-latest
-    timeout-minutes: 50
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@v4
 
-      - uses: oven-sh/setup-bun@v2
+      - uses: ./.github/actions/setup-build
         with:
-          bun-version: 1.3.1
+          cache-key-prefix: soak
 
-      - name: Install dependencies
-        run: bun install --frozen-lockfile
-
-      - name: Rebuild both WASM engines from pinned source
-        run: bun run build:wasm
-
-      - name: Render two virtual hours without WASM heap growth
+      - name: Render two virtual hours per engine without WASM heap growth
         env:
           LIBSIDPLAYFP_WASM_SOAK_SECONDS: "7200"
         run: bun run test:soak

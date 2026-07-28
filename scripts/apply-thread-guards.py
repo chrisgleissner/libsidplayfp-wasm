@@ -21,13 +21,14 @@ alias itself at a shim that runs the callable inline. Construction and join
 sites stay exactly as upstream wrote them, so the patch survives upstream
 adding, removing or reordering table builders.
 
-Note the moving target: these sources used to live in libsidplayfp under
-src/builders/, and the guard marker used to be
-`#if defined(HAVE_CXX20) && defined(__cpp_lib_jthread)`. As of libsidplayfp
-v3.x reSIDfp is the external libresidfp library and the marker is
-`HAVE_JTHREADS`. This script therefore searches the whole tree and, crucially,
-**fails when it finds thread usage it could not neutralise** instead of
-reporting success — a silent skip is what let a threaded build ship.
+The location and the guard marker both move between upstream releases: as of
+libsidplayfp v3.x reSIDfp is the external libresidfp library and the marker is
+`HAVE_JTHREADS`, where earlier versions had these sources under
+libsidplayfp's src/builders/ behind
+`#if defined(HAVE_CXX20) && defined(__cpp_lib_jthread)`. This script therefore
+searches the whole tree and, crucially, **fails when it finds thread usage it
+could not neutralise** instead of reporting success: a silent skip would ship a
+threaded build that cannot start.
 """
 
 from __future__ import annotations
@@ -140,8 +141,8 @@ def main(argv: List[str]) -> int:
     for path in patched:
         print(f"thread-guards: sidThread runs inline in {path.relative_to(root)}")
 
-    # A silent "nothing to do" is exactly how a threaded artifact shipped once
-    # already, so verify the result instead of trusting the search.
+    # A silent "nothing to do" would ship a threaded artifact that throws on the
+    # first tune load, so verify the result instead of trusting the search.
     leftovers = []
     for path in root.glob("**/*.cpp"):
         text = path.read_text(errors="ignore")

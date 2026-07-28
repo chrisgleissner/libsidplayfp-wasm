@@ -11,7 +11,6 @@
  * Why a purpose-built native reference rather than the distro `sidplayfp`:
  * distros ship libsidplayfp 2.x, so comparing against `/usr/bin/sidplayfp`
  * conflates "our build is wrong" with "upstream changed between major versions".
- * That mistake cost real time before it was spotted.
  *
  *   bun run scripts/native-parity.mjs                  # verify
  *   bun run scripts/native-parity.mjs --update-goldens # verify, then re-record
@@ -37,15 +36,34 @@ const GOLDENS_PATH = path.join(PACKAGE_ROOT, "test/fixtures/engine-goldens.json"
 /**
  * Thresholds.
  *
- * The two builds are NOT bit-identical and are not expected to be: emscripten's
- * musl-derived libm differs from glibc's in the last ulp, and those differences
- * reach reSIDfp's filter and resampler table generation. Measured on the
- * known-good build, the gap is correlation > 0.99999 with an error floor of
- * −75 to −87 dBFS — inaudible, and far below the SID's own noise floor.
+ * SIDLite is integer-only, so its WASM and native builds are bit-identical:
+ * correlation 1.0000000 with a zero error floor.
  *
- * For scale: the heap-use-after-free that made the engine 10 dB too bright
- * measured correlation 0.75 and roughly −20 dBFS. So −60 dBFS leaves ~15 dB of
- * headroom over observed noise while still catching a real defect by ~40 dB.
+ * reSIDfp is not, and cannot be. It builds its filter model with
+ * `log1p(exp(x))` (FilterModelConfig6581.cpp) and its combined-waveform tables
+ * with `pow()` (WaveformCalculator.cpp). IEEE-754 does not require either
+ * function to be correctly rounded, so emscripten's musl-derived libm and
+ * glibc legitimately disagree in the last bit. Computing libresidfp's own
+ * 65 536-entry filter table both ways measures the disagreement exactly:
+ *
+ *     differing entries : 28 of 65536  (0.04%)
+ *     max ULP difference: 1
+ *
+ * One ULP of a double is the smallest non-zero difference IEEE-754 can express,
+ * so this is the floor. Forcing it to zero would mean building the native
+ * control against musl too, which would stop it being an independent control,
+ * or patching upstream's math, which would make our output differ from every
+ * native build instead of one. Neither is a trade worth making for a table
+ * perturbation that an IIR filter amplifies to at most 15 LSB out of 32768.
+ *
+ * On a healthy build the resulting gap is correlation > 0.99999 with an error
+ * floor of −81 to −90 dBFS: inaudible, and far below the SID's own noise floor.
+ * For scale, a mixer reading freed memory measures correlation 0.75 and roughly
+ * −20 dBFS. So −60 dBFS leaves ~20 dB of headroom over observed noise while
+ * still catching that defect by ~40 dB.
+ *
+ * What *is* required, and is asserted directly in test/binding-surface.test.ts,
+ * is that each build is deterministic and chunk-size invariant.
  */
 const THRESHOLDS = {
   correlation: 0.9999,
@@ -210,9 +228,9 @@ console.log();
 if (failures > 0) {
   console.error(
     `${failures} fixture(s) failed the native parity thresholds.\n` +
-      `The wasm engine no longer matches a native build of the same library. This is how the\n` +
-      `heap-use-after-free in SidPlayerContext::selectSong() was caught. Reproduce it under\n` +
-      `AddressSanitizer, which names the offending access directly:\n` +
+      `The wasm engine does not match a native build of the same library. A mixer holding\n` +
+      `freed chip buffers is the classic cause. Reproduce it under AddressSanitizer, which\n` +
+      `names the offending access directly:\n` +
       `    SIDFLOW_EXTRA_FLAGS=-fsanitize=address bun run build:wasm`,
   );
   process.exit(1);

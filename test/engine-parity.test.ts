@@ -1,7 +1,7 @@
 /**
  * Native-validated non-degradation gate for both shipped engines.
  *
- * The old artifact loaded and returned plausible PCM while using the wrong
+ * A broken artifact can load and return plausible PCM while using the wrong
  * builder and corrupting mixer buffers. Goldens are deliberately generated
  * only by scripts/native-parity.mjs after each WASM engine has passed against
  * a native libsidplayfp build at the same pinned upstream refs.

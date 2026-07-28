@@ -15,7 +15,20 @@ import { loadLibsidplayfp } from '../src/index.js';
 import { SidAudioEngine } from '../src/player.js';
 import { readPrimarySid } from './helpers/real-sid.js';
 
-const RUN_WASM_PERF_ASSERTS = process.env.SIDFLOW_RUN_WASM_PERF_TESTS === '1';
+/**
+ * Two tiers of performance assertion.
+ *
+ * The always-on tier uses bounds so generous that only a collapse trips them —
+ * an engine that is an order of magnitude slower, not one that is 20% slower on
+ * a noisy shared runner. Without it these tests print numbers and assert
+ * nothing, so a genuine performance regression reaches a release unremarked.
+ *
+ * The strict tier holds the tight thresholds worth enforcing on a quiet machine.
+ * Enable it with LIBSIDPLAYFP_WASM_STRICT_PERF=1.
+ */
+const RUN_WASM_PERF_ASSERTS =
+    process.env.LIBSIDPLAYFP_WASM_STRICT_PERF === '1' ||
+    process.env.SIDFLOW_RUN_WASM_PERF_TESTS === '1';
 
 // Load a real SID file for benchmarking
 function loadTestSid(): Uint8Array {
@@ -68,8 +81,14 @@ describe('WASM Rendering Performance', () => {
             const MIN_DURATION_FOR_THROUGHPUT = 0.5; // seconds of PCM needed for a stable reading
 
             expect(samplesRendered).toBeGreaterThan(0);
-            if (RUN_WASM_PERF_ASSERTS && actualSeconds >= MIN_DURATION_FOR_THROUGHPUT) {
-                expect(throughputRatio).toBeGreaterThan(1.5); // Maintain a comfortable realtime margin
+            if (actualSeconds >= MIN_DURATION_FOR_THROUGHPUT) {
+                // Rendering faster than realtime is the point of this package.
+                // Healthy builds measure 70x or better, so 2x fails only on a
+                // collapse.
+                expect(throughputRatio).toBeGreaterThan(2);
+                if (RUN_WASM_PERF_ASSERTS) {
+                    expect(throughputRatio).toBeGreaterThan(20);
+                }
             }
         } finally {
             engine.dispose();
@@ -99,6 +118,7 @@ describe('WASM Rendering Performance', () => {
             // Cache should build fast (background builds have more leeway), but timing assertions are opt-in
             // because shared CI runners can vary significantly.
             expect(elapsedMs).toBeGreaterThan(0);
+            expect(elapsedMs).toBeLessThan(60_000);
             if (RUN_WASM_PERF_ASSERTS) {
                 expect(elapsedMs).toBeLessThan(10000); // Less than 10 seconds to cache 60s
             }
@@ -144,6 +164,9 @@ describe('WASM Rendering Performance', () => {
             const relaxedThreshold = iterations >= 50 ? 10 : 25;
 
             expect(iterations).toBeGreaterThan(0);
+            // A 20 000-cycle render is ~0.2 ms on a healthy build; 100 ms means
+            // something structural has broken, not that the runner is busy.
+            expect(avgCallTime).toBeLessThan(100);
             if (RUN_WASM_PERF_ASSERTS) {
                 expect(avgCallTime).toBeLessThan(relaxedThreshold);
             }

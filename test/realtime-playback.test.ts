@@ -146,12 +146,10 @@ describe('Real-Time Streaming Simulation', () => {
 
             console.log(`Samples: ${renderTimes.length}`);
 
-            // Some test SIDs can end very quickly in this harness; in that case there is nothing to measure.
-            if (renderTimes.length === 0) {
-                console.log('No render samples collected (song ended); jitter measurement is not applicable.');
-                expect(true).toBe(true);
-                return;
-            }
+            // Jitter needs a population. An empty one means the engine produced
+            // nothing at all, which is a failure of the render path rather than
+            // a measurement that does not apply.
+            expect(renderTimes.length).toBeGreaterThan(1);
 
             console.log(`Mean: ${mean.toFixed(3)}ms`);
             console.log(`Std Dev: ${stdDev.toFixed(3)}ms`);

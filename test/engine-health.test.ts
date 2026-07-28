@@ -24,7 +24,7 @@
  *
  * Each assertion below maps to one of those four failures. Thresholds sit far
  * enough from a healthy build that ordinary engine differences do not trip
- * them, and far enough from the historical values that a regression cannot
+ * them, and far enough from a known-broken artifact's values that a regression cannot
  * hide. SIDLite legitimately carries more raw DC than reSIDfp, including a
  * small number of real HVSC tunes just above 0.12. The absolute bound is a
  * coarse smoke check; native parity below is the precise engine-specific gate.
@@ -58,7 +58,7 @@ const HEALTH = {
    * an error.
    */
   maxAbsDc: 0.14,
-  /** The broken artifact sat at 0.976-0.996; healthy builds at 0.13-0.48. */
+  /** Healthy builds peak at 0.13-0.48; a mixer reading freed memory saturates. */
   maxPeak: 0.9,
   /** Anything quieter than this is silence, not a tune. */
   minRms: 0.0005,
@@ -102,7 +102,7 @@ describe.each(ENGINES)("engine health: $engine", ({ engine, builder, artifact })
           stats.acRms,
           `${engine}/${name}: held a DC frame instead of advancing playback (AC RMS ${stats.acRms})`,
         ).toBeGreaterThan(HEALTH.minAcRms);
-        // The broken artifact pinned peaks at 0.98-1.00, wasting all headroom.
+        // A mixer reading freed memory pins peaks at 0.98-1.00, wasting all headroom.
         expect(stats.peak, `${engine}/${name}: clips (peak ${stats.peak.toFixed(3)})`).toBeLessThan(
           HEALTH.maxPeak,
         );
@@ -111,13 +111,13 @@ describe.each(ENGINES)("engine health: $engine", ({ engine, builder, artifact })
         // native parity gate verifies the engine-specific value exactly.
         expect(
           Math.abs(stats.dc),
-          `${engine}/${name}: DC offset ${stats.dc.toFixed(4)} — the broken artifact measured 0.12-0.15`,
+          `${engine}/${name}: DC offset ${stats.dc.toFixed(4)} — no C64 audio path emits DC`,
         ).toBeLessThan(HEALTH.maxAbsDc);
       }, RENDER_TEST_TIMEOUT_MS);
     });
 
     it("renders several tunes from one module instance", () => {
-      // The broken artifact aborted in the embind destructor after the first
+      // A leaked or double-freed chip aborts in the embind destructor after the first
       // tune, so this needs no threshold: completing at all is the assertion.
       for (const fixture of FIXTURES) {
         const pcm = renderWith(wasmModule, fixture.file, CHUNK_CYCLES, 1);
@@ -126,7 +126,7 @@ describe.each(ENGINES)("engine health: $engine", ({ engine, builder, artifact })
     }, RENDER_TEST_TIMEOUT_MS);
 
     it("renders multi-SID tunes", () => {
-      // Waterfall_3SID is the case the broken artifact could not survive: it
+      // Waterfall_3SID is the hardest lifecycle case: it
       // died in selectSong with an out-of-bounds access. Every buffer defect
       // this package has had lived in per-chip buffer bookkeeping, which a
       // single-SID tune barely exercises.
