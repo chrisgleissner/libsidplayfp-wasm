@@ -18,7 +18,7 @@ before it is published.
 npm install libsidplayfp-wasm
 ```
 
-## Play a SID
+## 🎵 Play a SID
 
 ```ts
 import { SidAudioEngine } from "libsidplayfp-wasm";
@@ -51,7 +51,7 @@ Call `dispose()` when finished. It deletes the underlying C++ object, which is
 not garbage collected, and drops the reference to the WebAssembly heap so it
 becomes collectable.
 
-## Shaping the sound
+## 🎛️ Shaping the sound
 
 A SID sounds different depending on the machine it is played back on. All of
 libsidplayfp's emulation settings are available:
@@ -93,7 +93,7 @@ if (engine.supportsFilterConfig()) {
 > reach a shared model through static methods, so they affect every player in
 > the same WebAssembly instance. The rest are per chip.
 
-## Engines
+## ⚙️ Engines
 
 Both ship in every release; pick per instance.
 
@@ -109,7 +109,7 @@ const reference = new SidAudioEngine({ engine: "residfp" });
 `LIBSIDPLAYFP_WASM_ENGINE` sets a process-wide default; an explicit `engine`
 option always wins.
 
-## Lower-level access
+## 🔧 Lower-level access
 
 The default export gives you libsidplayfp's `SidPlayerContext` directly. It is
 the same object `SidAudioEngine` drives, minus the buffer management.
@@ -133,7 +133,7 @@ try {
 `SidAudioEngine` copies for you; the transient-buffer contract applies only
 here.
 
-## Browsers and bundlers
+## 🌐 Browsers and bundlers
 
 The loader finds its `.wasm` beside its JavaScript. If your bundler relocates
 static assets, say where they went:
@@ -154,7 +154,7 @@ supports it. Every browser Playwright ships is verified on each commit, and the
 packed package is installed and made to play a SID under **Node 20, 22 and 24**
 on every commit. Bun works too - the test suite runs on it.
 
-## C64 ROMs
+## 💾 C64 ROMs
 
 Tunes that run as real C64 programs - RSID, and anything driven by interrupts or
 BASIC - need the KERNAL, BASIC, and CHARGEN ROMs. Without them libsidplayfp
@@ -169,7 +169,7 @@ await engine.setSystemROMs(kernal, basic, chargen);
 engine.getRomStatus(); // { requested: true, active: true, … }
 ```
 
-## Which libsidplayfp am I getting?
+## 🔢 Which libsidplayfp am I getting?
 
 The package version and the libsidplayfp version inside it are related but not
 always identical, so the build states what it contains:
@@ -196,83 +196,59 @@ steps over any number already used:
 
 The exported constants are always exact, whichever scheme is in force.
 
-## How releases are verified
+## ✅ How releases are verified
 
-An emulator can produce plausible-sounding audio while being subtly wrong, so
-correctness here is established by comparison against a reference rather than by
-listening.
+An emulator can sound plausible while being subtly wrong, so correctness here is
+settled by comparison against a reference, not by listening.
 
-**On every commit**
+**Every commit**
 
-- The full unit suite, with **100% line coverage** on production
-  TypeScript, enforced locally, in CI, and on Codecov.
-- **Native differential parity.** Both engines are compared sample-for-sample
-  against a *native* build of libsidplayfp at the identical pinned source
-  commit, over 29 tunes selected from HVSC #85, two seconds each. SIDLite
-  matches bit for bit. reSIDfp stays above 0.99999 correlation with an error
-  floor of −81 to −90 dBFS, which is below the SID's own noise floor and comes
-  from a 1-ULP disagreement between C libraries in the filter-model tables.
-- **Browsers**, via Playwright: Chromium and Firefox on the desktop, Chromium
-  emulating a Pixel 5, and WebKit emulating an iPhone 13 - 7 tests each, both
-  engines, including playback from module workers and two workers rendering
-  concurrently.
-- **Determinism**: the same tune renders identically on repeat and at any chunk
-  size, so output never depends on how a host happens to pull audio.
-- The packed npm tarball is installed into an empty project and made to play a
-  SID through both engines and both public entry points.
+- Full unit suite at **100% line coverage**.
+- **Native differential parity**: both engines compared sample-for-sample
+  against a *native* build of libsidplayfp at the same pinned commit. SIDLite
+  matches bit for bit; reSIDfp holds correlation > 0.99999 with an error floor
+  of −81 to −90 dBFS, below the SID's own noise floor.
+- **Browsers**: Chromium and Firefox on the desktop, Chromium as a Pixel 5,
+  WebKit as an iPhone 13 — including playback from module workers.
+- **Determinism**: identical audio on repeat and at any chunk size.
+- The packed tarball is installed into a clean project and made to play a SID
+  under Node 20, 22 and 24.
 
-**On every release, additionally**
+**Every release, additionally**
 
-- The unit suite three consecutive times.
-- An **edge-case sweep**: 1,678 tunes selected from HVSC #85's 61,157, loaded
-  and rendered through both engines, then compared against native builds. The
-  selection takes *every* file in the categories most likely to break a player -
-  all 364 multi-SID tunes, all 589 BASIC-driven RSIDs, all 76 with 32 or more
-  subtunes - plus 400 each sampled evenly across the 3,924 RSID and 4,035
-  zero-play-address files. Each is rendered for a fraction of a second, so this
-  is a broad load-and-progress check rather than full playback of each tune.
-- Both engines rebuilt from immutable upstream commits. The build aborts if an
-  upstream tag no longer resolves to the commit this repository pins.
-- Each binary is checked to contain the engine it claims and not the other one.
-- After publishing, that exact version is **reinstalled from npm** into an empty
-  directory and made to play a SID. The git tag and GitHub release are created
-  only if that succeeds.
+- The unit suite three times over.
+- **1,678 tunes** selected from HVSC #85's 61,157 — every multi-SID, every
+  BASIC-driven RSID, every file with 32+ subtunes, plus 400 each sampled from
+  the RSID and zero-play-address populations — rendered through both engines and
+  compared against native builds.
+- Engines rebuilt from immutable upstream commits; the build aborts if a tag no
+  longer resolves to the pinned commit, and each binary is checked to contain the
+  engine it claims and not the other.
+- After publishing, that exact version is **reinstalled from npm** and made to
+  play a SID. The tag and release are created only if that succeeds.
 
 A weekly soak renders two hours of emulated playback per engine and requires the
-WebAssembly heap to stay flat afterwards, so long-running players do not leak.
+WebAssembly heap to stay flat. Every release ships an SBOM, SHA-256 checksums,
+and build provenance.
 
-Every release ships a CycloneDX SBOM, SHA-256 checksums, and build provenance
-attestation.
+## ⚖️ Licence and attribution
 
-## Licence and attribution
+GPL-2.0-or-later, like libsidplayfp. The binaries also contain MIT components
+(`hashlib`, musl, the Emscripten runtime) and LLVM runtime libraries under
+Apache-2.0 with LLVM Exceptions.
 
-GPL-2.0-or-later, the same as libsidplayfp.
+- [`LICENSE`](LICENSE) — the GPL-2.0 text.
+- [`THIRD-PARTY-NOTICES.md`](THIRD-PARTY-NOTICES.md) — every component compiled
+  in, with its licence and copyright.
+- [`MODIFICATIONS.md`](MODIFICATIONS.md) — what this project changes in
+  libsidplayfp and libresidfp. None of it alters the emulation.
+- **`dist/complete-source.tar.gz`, inside this package** — the complete
+  corresponding source for the binaries, also attached to every release.
 
-The distributed `.wasm` binaries are object code covered by the GPL. They also
-incorporate MIT-licensed components (Cra3z's `hashlib`, which provides the MD5
-behind `getTuneMd5()`; musl; the Emscripten runtime) and LLVM runtime libraries
-under Apache-2.0 with LLVM Exceptions.
+**This is an independent redistribution**, not an official libsidplayfp product,
+and not endorsed by or affiliated with its authors. Report problems here rather
+than upstream, unless a native sidplayfp reproduces them.
 
-* [`LICENSE`](LICENSE) - the GPL-2.0 text.
-* [`THIRD-PARTY-NOTICES.md`](THIRD-PARTY-NOTICES.md) - every component compiled
-  into the binaries, with its licence and copyright.
-* **`dist/complete-source.tar.gz`, inside this package** - the complete
-  corresponding source for the binaries: both upstream projects at their exact
-  pinned commits, the modifications applied to them, the bindings, and the
-  build. The same archive is attached to every GitHub release.
-* [`MODIFICATIONS.md`](MODIFICATIONS.md) - what this project changes in
-  libsidplayfp and libresidfp before compiling them. Nothing there alters the
-  emulation; the audio path is upstream's own.
-
-`upstream.json`, the exported `UPSTREAM_COMMITS`, and the `UPSTREAM.json` file
-beside each artifact record the exact commits a given binary was built from.
-
-**This is an independent redistribution.** It is not an official libsidplayfp,
-libresidfp, or SIDLite product, and it is not endorsed by or affiliated with
-their authors. Report problems here, not upstream - unless a native sidplayfp
-reproduces the same behaviour, in which case upstream is the right place.
-
-No Commodore 64 ROMs, SID tunes, or music corpora are distributed. See
-[`THIRD-PARTY-NOTICES.md`](THIRD-PARTY-NOTICES.md#not-distributed).
+No C64 ROMs, SID tunes, or music corpora are distributed.
 
 Contributing? See [`AGENTS.md`](AGENTS.md).
