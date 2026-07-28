@@ -9,6 +9,13 @@ on:
 permissions:
   contents: read
 
+# One run per branch. The release preflight resolves "the Verify run for this
+# commit" by head SHA, so superseded runs piling up on a branch make that lookup
+# ambiguous as well as wasteful.
+concurrency:
+  group: verify-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   verify:
     name: Build, playback, package, and native parity
