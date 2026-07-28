@@ -22,7 +22,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # Before anything expensive: a workflow that GitHub cannot parse is
       # reported as a failed run with no jobs, and `yaml.safe_load` does not
@@ -45,7 +45,7 @@ jobs:
 
       - name: Upload the verified LCOV report to Codecov
         if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@v7
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: coverage/lcov.info
@@ -66,19 +66,19 @@ jobs:
       # packed tarball into a clean project and plays a SID through both engines
       # under that runtime, which takes seconds.
       - name: Verify the packed package on Node 20
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: 20
       - run: bun run check:package
 
       - name: Verify the packed package on Node 22
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: 22
       - run: bun run check:package
 
       - name: Restore Node 24
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: 24
 
