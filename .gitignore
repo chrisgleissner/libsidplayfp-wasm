@@ -1,0 +1,7 @@
+.cache/
+cpp/
+node_modules/
+coverage/
+coverage-*/
+playwright-report/
+test-results/

@@ -1,0 +1,229 @@
+name: Qualify and release
+
+on:
+  pull_request:
+    types: [closed]
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Exact upstream version to release, for the initial validated release (for example 3.0.2)"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  packages: write
+  id-token: write
+  attestations: write
+
+jobs:
+  preflight:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.pull_request.merged == true && startsWith(github.event.pull_request.head.ref, 'automation/libsidplayfp-v'))
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      needed: ${{ steps.version.outputs.needed }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Verify the release target is an untagged upstream pin
+        id: version
+        env:
+          REQUESTED_VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          VERSION=$(node -p "require('./package.json').version")
+          PIN=$(node -p "require('./upstream.json').libsidplayfp.ref.slice(1)")
+          test "$VERSION" = "$PIN"
+          if [ -n "$REQUESTED_VERSION" ] && [ "$REQUESTED_VERSION" != "$VERSION" ]; then
+            echo "Requested $REQUESTED_VERSION but pinned package is $VERSION" >&2
+            exit 1
+          fi
+          if git ls-remote --exit-code --tags origin "v${VERSION}" >/dev/null 2>&1; then
+            echo "Release v${VERSION} already exists; nothing to publish."
+            echo "needed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "needed=true" >> "$GITHUB_OUTPUT"
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+  qualify:
+    needs: preflight
+    if: needs.preflight.outputs.needed == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.1
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install native comparison and fixture tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            autoconf automake build-essential libtool p7zip-full pkg-config xa65
+
+      - name: Restore immutable source and real-playback caches
+        uses: actions/cache@v4
+        with:
+          path: |
+            .cache/upstream
+            .cache/native-reference
+            .cache/hvsc-85
+            .cache/vice-c64-roms
+          key: >-
+            release-${{ runner.os }}-${{
+              hashFiles('upstream.json', 'docker/**', 'scripts/**', 'test/helpers/engine-fixtures.ts')
+            }}
+          restore-keys: |
+            release-${{ runner.os }}-
+            verify-${{ runner.os }}-
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Rebuild both WASM engines from pinned source
+        run: bun run build:wasm
+
+      - name: Build TypeScript wrapper
+        run: bun run build
+
+      - name: Require three consecutive full unit-suite passes
+        run: |
+          echo "=== full unit suite 1/3 with coverage ==="
+          bun run test:coverage
+          for run in 2 3; do
+            echo "=== full unit suite ${run}/3 ==="
+            bun run test
+          done
+
+      - name: Install browser runtime and test both engines
+        run: |
+          bunx playwright install --with-deps chromium firefox webkit
+          bun run test:browser
+
+      - name: Verify clean package and Node consumer
+        run: bun run check:package
+
+      - name: Sweep every HVSC #85 edge case with both WASM engines
+        run: bun run test:edge
+
+      - name: Compare every edge case with native libsidplayfp
+        run: bun run test:parity:edge
+
+      - name: Produce release package, SBOM, and checksums
+        env:
+          VERSION: ${{ needs.preflight.outputs.version }}
+        run: |
+          set -euo pipefail
+          mkdir -p release
+          npm pack --ignore-scripts --pack-destination release
+          npm sbom --sbom-format cyclonedx --omit=dev > release/sbom.cdx.json
+          STAGE="release/libsidplayfp-wasm-${VERSION}"
+          mkdir -p "$STAGE/sidlite"
+          for file in libsidplayfp.js libsidplayfp.wasm libsidplayfp.d.ts LICENSE README.md; do
+            cp "dist/$file" "$STAGE/$file"
+            cp "dist/sidlite/$file" "$STAGE/sidlite/$file"
+          done
+          (cd "$STAGE" && find . -type f -printf '%P\n' | sort | xargs sha256sum > ../SHA256SUMS)
+          tar -czf "release/libsidplayfp-wasm-${VERSION}.tar.gz" -C release "libsidplayfp-wasm-${VERSION}"
+          (cd release && sha256sum *.tgz "libsidplayfp-wasm-${VERSION}.tar.gz" sbom.cdx.json > RELEASE-SHA256SUMS)
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: verified-release-${{ needs.preflight.outputs.version }}
+          path: release/
+          if-no-files-found: error
+
+  publish:
+    needs: [preflight, qualify]
+    if: needs.preflight.outputs.needed == 'true' && needs.qualify.result == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+
+      - name: Install npm CLI with GitHub OIDC publishing support
+        run: |
+          npm install --global npm@11.5.1
+          test "$(npm --version)" = "11.5.1"
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: verified-release-${{ needs.preflight.outputs.version }}
+          path: release
+
+      - name: Verify the exact artifact that will be published
+        run: |
+          set -euo pipefail
+          TARBALL=$(find release -maxdepth 1 -name '*.tgz' -print -quit)
+          test -n "$TARBALL"
+          node scripts/check-package.mjs --tarball "$TARBALL"
+
+      - name: Publish verified tarball to npm with provenance
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+          VERSION: ${{ needs.preflight.outputs.version }}
+        run: |
+          set -euo pipefail
+          TARBALL=$(find release -maxdepth 1 -name '*.tgz' -print -quit)
+          test -n "$TARBALL"
+          PACKAGE=$(node -p "require('./package.json').name")
+          if npm view "$PACKAGE@$VERSION" version --registry=https://registry.npmjs.org >/dev/null 2>&1; then
+            echo "$PACKAGE@$VERSION is already present on npm; preserving the immutable version."
+            exit 0
+          fi
+          if [ -n "${NPM_TOKEN:-}" ]; then
+            npm config set //registry.npmjs.org/:_authToken "$NPM_TOKEN"
+          fi
+          npm publish "$TARBALL" --registry=https://registry.npmjs.org --access public --provenance
+
+      - name: Publish the same verified tarball to GitHub Packages
+        env:
+          NODE_AUTH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.preflight.outputs.version }}
+        run: |
+          set -euo pipefail
+          TARBALL=$(find release -maxdepth 1 -name '*.tgz' -print -quit)
+          test -n "$TARBALL"
+          PACKAGE=$(node -p "require('./package.json').name")
+          printf '%s\n' "@chrisgleissner:registry=https://npm.pkg.github.com" "//npm.pkg.github.com/:_authToken=${NODE_AUTH_TOKEN}" > "$HOME/.npmrc"
+          if npm view "$PACKAGE@$VERSION" version --registry=https://npm.pkg.github.com >/dev/null 2>&1; then
+            echo "$PACKAGE@$VERSION is already present on GitHub Packages; preserving the immutable version."
+            exit 0
+          fi
+          npm publish "$TARBALL" --registry=https://npm.pkg.github.com
+
+      - name: Attest the release artifact
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: release/*.tgz
+
+      - name: Create GitHub release with verified artifacts
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.preflight.outputs.version }}
+        run: |
+          set -euo pipefail
+          gh release create "v$VERSION" release/*.tgz release/libsidplayfp-wasm-"$VERSION".tar.gz release/SHA256SUMS release/RELEASE-SHA256SUMS release/sbom.cdx.json \
+            --target main --title "libsidplayfp WASM $VERSION" --generate-notes
