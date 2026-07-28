@@ -61,5 +61,26 @@ jobs:
       - name: Verify the clean npm payload and Node consumer
         run: bun run check:package
 
+      # The package declares a supported Node range, so prove it rather than
+      # assert it. The build above happens once; each of these re-installs the
+      # packed tarball into a clean project and plays a SID through both engines
+      # under that runtime, which takes seconds.
+      - name: Verify the packed package on Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: bun run check:package
+
+      - name: Verify the packed package on Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: bun run check:package
+
+      - name: Restore Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
       - name: Compare both WASM engines with native libsidplayfp
         run: bun run test:parity
