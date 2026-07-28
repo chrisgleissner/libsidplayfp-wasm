@@ -146,9 +146,32 @@ const rows = [];
 const goldenFixtures = Object.fromEntries(ENGINES.map((engine) => [engine.name, {}]));
 let failures = 0;
 
+// The comparison table is only useful sorted and complete, so it is printed at
+// the end. That leaves the sweep itself silent, and on the edge corpus that is
+// thousands of fixtures and many minutes of nothing — indistinguishable from a
+// hung job, which is an invitation to cancel a release that is in fact fine.
+// So report progress as it goes; the table still lands at the end.
+const totalComparisons = fixtures.length * ENGINES.length;
+const progressEvery = Math.max(1, Math.ceil(fixtures.length / 20));
+const startedAt = Date.now();
+let completed = 0;
+
+function reportProgress(engineName, index) {
+  const elapsed = (Date.now() - startedAt) / 1000;
+  const rate = completed / Math.max(elapsed, 0.001);
+  const remaining = rate > 0 ? (totalComparisons - completed) / rate : 0;
+  console.log(
+    `[parity] ${engineName} ${index + 1}/${fixtures.length}` +
+      ` — ${completed}/${totalComparisons} total,` +
+      ` ${elapsed.toFixed(0)}s elapsed, ~${remaining.toFixed(0)}s remaining,` +
+      ` ${failures} failing so far`,
+  );
+}
+
 try {
   for (const engine of ENGINES) {
     const wasmModule = wasmModules.get(engine.name);
+    console.log(`[parity] ${engine.name}: comparing ${fixtures.length} fixtures against the native build`);
     for (const [index, fixture] of fixtures.entries()) {
       const wasm = renderWith(wasmModule, fixture.file, CHUNK_CYCLES, renderSeconds);
       const nativeRaw = path.join(scratch, `${engine.name}-${index}.raw`);
@@ -202,6 +225,11 @@ try {
         bandsDb: wasmStats.bandsDb,
         envelope: wasmStats.envelope,
       };
+
+      completed++;
+      if (completed % progressEvery === 0 || index === fixtures.length - 1) {
+        reportProgress(engine.name, index);
+      }
     }
   }
 } finally {
