@@ -175,7 +175,9 @@ jobs:
           done
           (cd "$STAGE" && find . -type f -printf '%P\n' | sort | xargs sha256sum > ../SHA256SUMS)
           tar -czf "release/libsidplayfp-wasm-${VERSION}.tar.gz" -C release "libsidplayfp-wasm-${VERSION}"
-          (cd release && sha256sum *.tgz "libsidplayfp-wasm-${VERSION}.tar.gz" \
+          # ./*.tgz, not *.tgz: a filename beginning with a dash would otherwise
+          # be read as an option (shellcheck SC2035).
+          (cd release && sha256sum ./*.tgz "libsidplayfp-wasm-${VERSION}.tar.gz" \
             "libsidplayfp-wasm-${VERSION}-complete-source.tar.gz" sbom.cdx.json > RELEASE-SHA256SUMS)
 
       - uses: actions/upload-artifact@v4
