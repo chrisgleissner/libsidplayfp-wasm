@@ -216,7 +216,6 @@ settled by comparison against a reference, not by listening.
 
 **Every release, additionally**
 
-- The unit suite three times over.
 - **1,678 tunes** selected from HVSC #85's 61,157 — every multi-SID, every
   BASIC-driven RSID, every file with 32+ subtunes, plus 400 each sampled from
   the RSID and zero-play-address populations — rendered through both engines and

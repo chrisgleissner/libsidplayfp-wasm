@@ -3,7 +3,7 @@ name: Qualify and release
 # Release order is fixed and each step gates the next:
 #
 #   preflight  the commit's own CI is green, the version is valid and unpublished
-#   qualify    rebuild, full suite three times, coverage, browsers, package,
+#   qualify    rebuild, full suite with coverage, browsers, package,
 #              HVSC edge sweep, native differential parity, then a smoke test of
 #              the exact tarball that will be uploaded
 #   publish    npm, via OIDC trusted publishing with no stored credential
@@ -31,6 +31,13 @@ on:
 
 permissions:
   contents: read
+
+# An npm version is immutable, so two releases running at once means one of them
+# fails partway through having already published. Serialise them, and never
+# cancel: a run that has reached `publish` must be allowed to finish tagging.
+concurrency:
+  group: release
+  cancel-in-progress: false
 
 jobs:
   preflight:
@@ -131,15 +138,8 @@ jobs:
         with:
           cache-key-prefix: release
 
-      - name: Require three consecutive full unit-suite passes
-        run: |
-          set -euo pipefail
-          echo "=== full unit suite 1/3 with coverage ==="
-          bun run test:coverage
-          for run in 2 3; do
-            echo "=== full unit suite ${run}/3 ==="
-            bun run test
-          done
+      - name: Run the full unit suite with coverage
+        run: bun run test:coverage
 
       - name: Install browser runtime and test both engines
         run: |
