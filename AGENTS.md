@@ -43,17 +43,47 @@ WebAssembly distribution of libsidplayfp.
   ```
 
 - npm authentication is OIDC trusted publishing: the workflow exchanges GitHub's
-  id-token for a short-lived registry credential, so in the steady state no npm
-  secret exists. npm cannot create a trusted publisher for a package that does
-  not exist yet, so the first release of a new package name needs a one-off
-  `NPM_TOKEN` repository secret. Immediately afterwards, run
+  id-token for a short-lived registry credential, so no npm secret exists. The
+  package's trusted publisher is `chrisgleissner/libsidplayfp-wasm` +
+  `release.yaml`, with no environment. Changing the workflow *filename* breaks
+  publishing until the trusted publisher is updated to match.
 
-  ```bash
-  npm trust github libsidplayfp-wasm \
-    --repo chrisgleissner/libsidplayfp-wasm --file release.yaml
-  ```
+### Bootstrapping a new package on npm
 
-  delete the secret, and remove the fallback branch from `release.yaml`.
+  Only relevant if this package is ever renamed, or when setting up a sibling
+  project. It cost several hours to work out, so it is written down.
+
+  1. **A token cannot publish from CI** when the npm account is set to
+     `two-factor auth: auth-and-writes` (check with `npm profile get`). Every
+     write is challenged interactively, and the one exemption — the Classic
+     "Automation" token — has been retired; npm now offers only Granular tokens
+     and is [restricting 2FA
+     bypass](https://gh.io/npm-gat-bypass2fa-deprecation). A CI publish attempt
+     fails with `EOTP`. Do not waste time on token types.
+  2. **Trusted publishing requires the package to already exist**, so a brand
+     new name is a chicken-and-egg. Break it by publishing a minimal placeholder
+     `0.0.1` by hand, which is the one operation that legitimately needs a human
+     and a browser. Delete that version once the first real release is out;
+     npm allows unpublishing a version within 72 hours when it is not the only
+     one.
+  3. **Configure the trusted publisher in the npm web UI**, at
+     `https://www.npmjs.com/package/<name>/access`, not with `npm trust github`.
+     The API requires an `allowed_actions` field that the CLI does not send
+     (`lib/commands/trust/github.js:optionsToBody` emits only `type` and
+     `claims`), so the CLI fails with an undiagnosable `400 Bad Request`. Tick
+     **publish** only — the release runs no other privileged npm command.
+  4. **Leave the environment name empty** unless the workflow declares a
+     matching `environment:`. An environment in the claim that the workflow does
+     not set makes every publish fail.
+  5. **Expect registry lag on a brand new package.** Immediately after the first
+     publish, the read path 404s while `npm access list packages` already shows
+     the package. Errors during that window mean "not propagated yet", not
+     "failed" — re-check state before retrying a destructive command.
+  6. Confirm success by the publisher badge on
+     `https://www.npmjs.com/settings/<user>/packages`: it reads **GitHub
+     Actions** once trusted publishing works, and your username before that.
+  7. Finally set *Publishing access* to **require 2FA and disallow tokens**, so
+     the token path is impossible rather than merely unused.
 - Do not stage releases through a `next` dist-tag. npm's OIDC credential
   authenticates `npm publish` and nothing else, so moving `latest` afterwards
   would require a long-lived token. The guard is the consumer smoke test run
