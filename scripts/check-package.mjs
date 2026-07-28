@@ -2,9 +2,11 @@
 /** Verify the npm tarball in a clean Node.js consumer, without publishing it. */
 
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { copyFileSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
+
+import { renderConsumerSmoke } from "./consumer-smoke.mjs";
 
 const PACKAGE_ROOT = path.resolve(import.meta.dirname, "..");
 const scratch = mkdtempSync(path.join(tmpdir(), "libsidplayfp-wasm-package-"));
@@ -39,20 +41,21 @@ try {
   );
   execFileSync("npm", ["install", "--ignore-scripts", "--package-lock=false"], { cwd: scratch, stdio: "inherit" });
 
-  const fixture = path.join(PACKAGE_ROOT, "test-tone-c4.sid");
+  // The same smoke test the released package is put through after publishing,
+  // so the bytes we verify and the bytes users get are held to one standard.
+  copyFileSync(
+    path.join(PACKAGE_ROOT, "test-tone-c4.sid"),
+    path.join(scratch, "tune.sid"),
+  );
   writeFileSync(
     path.join(scratch, "smoke.mjs"),
-    `import { readFileSync } from "node:fs";\n` +
-      `import { loadLibsidplayfp } from "${packageName}";\n` +
-      `const wasm = await loadLibsidplayfp({ engine: "sidlite" });\n` +
-      `if (wasm.getSidEngineName() !== "WasmSIDLite") throw new Error("wrong packaged engine");\n` +
-      `const context = new wasm.SidPlayerContext();\n` +
-      `try {\n` +
-      `  if (!context.configure(48000, true)) throw new Error(context.getLastError());\n` +
-      `  if (!context.loadSidBuffer(new Uint8Array(readFileSync(${JSON.stringify(fixture)})))) throw new Error(context.getLastError());\n` +
-      `  const pcm = context.render(100000);\n` +
-      `  if (!pcm || pcm.length === 0 || !pcm.some((sample) => sample !== 0)) throw new Error("packaged module produced no audio");\n` +
-      `} finally { context.delete(); }\n`,
+    renderConsumerSmoke({
+      packageName,
+      expectedVersion: JSON.parse(
+        readFileSync(path.join(PACKAGE_ROOT, "package.json"), "utf8"),
+      ).version,
+      tunePath: "tune.sid",
+    }),
   );
   execFileSync("node", ["smoke.mjs"], { cwd: scratch, stdio: "inherit" });
   console.log(`package check passed: ${path.basename(tarball)}`);

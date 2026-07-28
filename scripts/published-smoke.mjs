@@ -7,8 +7,10 @@
  * directory, imports it by package name, and requires real audio out of both
  * engines and both public entry points.
  *
- * Run in CI immediately after publishing and before the `latest` dist-tag moves,
- * so a version that fails here is never the one `npm install` resolves to.
+ * The body is `scripts/consumer-smoke.mjs`, shared with the pre-publish check in
+ * `check-package.mjs`, so the bytes that are verified and the bytes that are
+ * served are held to the same standard. Failing here blocks the git tag and the
+ * GitHub release.
  *
  * Usage:
  *   node scripts/published-smoke.mjs --package @scope/name --version 1.2.3
@@ -19,6 +21,8 @@ import { execFileSync } from "node:child_process";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
+
+import { renderConsumerSmoke } from "./consumer-smoke.mjs";
 
 function readOption(name, fallback) {
   const index = process.argv.indexOf(`--${name}`);
@@ -63,67 +67,11 @@ try {
 
   writeFileSync(
     path.join(scratch, "smoke.mjs"),
-    `import { readFileSync } from "node:fs";
-import {
-  LIBSIDPLAYFP_VERSION,
-  PACKAGE_VERSION,
-  SidAudioEngine,
-  loadLibsidplayfp,
-} from ${JSON.stringify(packageName)};
-
-const tune = new Uint8Array(readFileSync("tune.sid"));
-const expectedVersion = ${JSON.stringify(version)};
-
-if (PACKAGE_VERSION !== expectedVersion) {
-  throw new Error(\`published PACKAGE_VERSION is \${PACKAGE_VERSION}, expected \${expectedVersion}\`);
-}
-if (!/^\\d+\\.\\d+\\.\\d+$/.test(LIBSIDPLAYFP_VERSION)) {
-  throw new Error(\`published LIBSIDPLAYFP_VERSION is not a release: \${LIBSIDPLAYFP_VERSION}\`);
-}
-console.log(\`package \${PACKAGE_VERSION} contains libsidplayfp \${LIBSIDPLAYFP_VERSION}\`);
-
-function rms(pcm) {
-  let sum = 0;
-  for (const sample of pcm) sum += (sample / 32768) ** 2;
-  return Math.sqrt(sum / Math.max(1, pcm.length));
-}
-
-for (const [engine, builder] of [["sidlite", "WasmSIDLite"], ["residfp", "WasmReSIDfp"]]) {
-  // Path 1: the generated module, driven directly.
-  const wasm = await loadLibsidplayfp({ engine });
-  if (wasm.getSidEngineName() !== builder) {
-    throw new Error(\`\${engine} resolved to \${wasm.getSidEngineName()}, expected \${builder}\`);
-  }
-  const context = new wasm.SidPlayerContext();
-  try {
-    if (!context.configure(48_000, true)) throw new Error(context.getLastError());
-    if (!context.loadSidBuffer(tune)) throw new Error(context.getLastError());
-    const chunk = context.render(100_000);
-    if (!chunk || chunk.length === 0) throw new Error(\`\${engine} module produced no samples\`);
-    const info = context.getEngineInfo();
-    if (!info || typeof info.name !== "string") throw new Error(\`\${engine} reported no engine info\`);
-  } finally {
-    context.delete();
-  }
-
-  // Path 2: the SidAudioEngine wrapper, which is what most callers use.
-  const player = new SidAudioEngine({ engine, sampleRate: 44_100, stereo: true });
-  try {
-    await player.loadSidBuffer(tune);
-    const pcm = await player.renderSeconds(1, 20_000);
-    if (pcm.length !== 88_200) {
-      throw new Error(\`\${engine} wrapper produced \${pcm.length} samples, expected 88200\`);
-    }
-    const level = rms(pcm);
-    if (!(level > 0.001)) throw new Error(\`\${engine} wrapper rendered silence (rms \${level})\`);
-    console.log(\`\${engine}: \${pcm.length} samples, rms \${level.toFixed(4)}\`);
-  } finally {
-    player.dispose();
-  }
-}
-
-console.log("published package smoke test: ok");
-`,
+    renderConsumerSmoke({
+      packageName,
+      expectedVersion: version,
+      tunePath: "tune.sid",
+    }),
   );
 
   execFileSync("node", ["smoke.mjs"], { cwd: scratch, stdio: "inherit" });
