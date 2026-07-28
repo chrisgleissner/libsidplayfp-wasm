@@ -203,6 +203,37 @@ different things until they were made one file. Ask specifically:
 - Build flags in `docker/entrypoint.sh` and what the README claims about
   runtime support.
 
+## Diagnosing a failure in a consumer
+
+Two mistakes were made investigating an out-of-memory failure in a downstream
+classifier, and both are easy to repeat.
+
+**A report that something used to work is a regression claim.** The first
+response was to explain the failure as the consumer's design meeting process
+limits — engines created per job, each with its own linear memory, so of course
+memory runs out. Then it emerged that the same pipeline had exported the whole of
+HVSC on an earlier version. A thing that worked and now does not is a regression
+until measurement says otherwise, however reasonable the by-design story sounds.
+
+**A metric that names a cause is still only a metric.** The consumer logs
+`N render engines live across M workers; engines are outliving their jobs`, and
+119-across-6 was quoted as the root cause. It is `enginesCreated -
+enginesDisposed` summed across workers that its pool **replaces every 32 jobs**,
+so disposals belonging to a replaced worker go unaccounted and the number grows
+with jobs-per-worker rather than with any leak. The failing run had 6 workers
+doing three times the jobs each of the 20-worker run that showed nothing. The
+counter was measuring the configuration.
+
+What actually settled it was measuring the things that could be measured:
+parsing the WASM memory section of both the current and the previously-working
+artifact (byte-identical), reading the module cache path, checking what
+`dispose()` releases, and measuring heap against render length — which also
+disproved a third hypothesis, that long renders grew the heap. It is flat.
+
+When a consumer fails, the useful question is not "is this our fault" but "which
+of these mechanisms can I rule out with a measurement", and the answer is usually
+more of them than expected.
+
 ## What a host must know about instance lifetime
 
 Every module `loadLibsidplayfp()` returns owns a **16.2 MB WebAssembly linear
