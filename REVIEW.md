@@ -141,7 +141,7 @@ the failure is latent rather than observed.
 at a workflow-managed file explicitly for each publish, and always define
 `NODE_AUTH_TOKEN`.
 
-### C3b — `npm publish` is handed a relative path npm reads as a GitHub repo &nbsp;·&nbsp; **High**
+### C4 — `npm publish` is handed a relative path npm reads as a GitHub repo &nbsp;·&nbsp; **High**
 
 Run [30318872997](https://github.com/chrisgleissner/libsidplayfp-wasm/actions/runs/30318872997),
 job `publish`, step *Publish verified tarball to npm with provenance*:
@@ -162,7 +162,7 @@ share the bug.
 
 **Fix:** resolve the tarball to an absolute path (or prefix `./`).
 
-### C3c — The release path does not require the repository's own CI to be green &nbsp;·&nbsp; **High**
+### C5 — The release path does not require the repository's own CI to be green &nbsp;·&nbsp; **High**
 
 At `3561b31` the `Verify` workflow on `main` **failed**
 ([30318864721](https://github.com/chrisgleissner/libsidplayfp-wasm/actions/runs/30318864721))
@@ -194,7 +194,7 @@ while a release proceeds.
    GitHub Packages, and the git tag and GitHub release are created only after
    the published artifact has proved itself.
 
-### C4 — The "immutable commit" pin is never enforced &nbsp;·&nbsp; **High**
+### C6 — The "immutable commit" pin is never enforced &nbsp;·&nbsp; **High**
 
 `upstream.json` records a 40-character commit for each dependency, `scripts/upstream.mjs`
 validates its shape, and `AGENTS.md` calls it "the single source of truth …
@@ -216,7 +216,7 @@ libsidplayfp.commit` exists and has no caller.
 **Fix:** resolve and `git rev-parse --verify` the pinned commit for both
 repositories and abort on mismatch.
 
-### C5 — Versioning makes downstream fixes structurally impossible &nbsp;·&nbsp; **High**
+### C7 — Versioning makes downstream fixes structurally impossible &nbsp;·&nbsp; **High**
 
 `scripts/upstream.mjs update` sets `package.json.version = ref.slice(1)`, and
 `release.yaml` preflight enforces `test "$VERSION" = "$PIN"`. The package version
@@ -224,7 +224,7 @@ is therefore *defined* as the upstream version, so there is no version number
 available for a fix to this repository's own TypeScript, loader, bindings, or
 packaging. See §7 for the replacement scheme.
 
-### C6 — `render()` hands out a live view into WASM memory <a id="c6"></a> &nbsp;·&nbsp; **Medium**
+### C8 — `render()` hands out a live view into WASM memory <a id="c8"></a> &nbsp;·&nbsp; **Medium**
 
 `SidPlayerContext::render()` returns `emscripten::typed_memory_view(...)` over
 `mixBuffer`. The returned `Int16Array` is a window onto the heap, not a copy: it
@@ -250,13 +250,13 @@ Zero-copy is the right default for a hot path; leaving it undocumented is not.
 **Fix:** document it prominently on the binding, in the `.d.ts`, and in the
 README example.
 
-### C7 — `selectSong()` cannot report failure &nbsp;·&nbsp; **Low**
+### C9 — `selectSong()` cannot report failure &nbsp;·&nbsp; **Low**
 
 `bindings.cpp:329` returns `0U` for "no tune loaded", for "`player.load()`
 failed", and for "song 0 selected successfully". A caller cannot distinguish
 them; only `getLastError()` hints, and it is not cleared on success.
 
-### C9 — Upstream is compiled with exception handling disabled, defeating its own error reporting &nbsp;·&nbsp; **High**
+### C10 — Upstream is compiled with exception handling disabled, defeating its own error reporting &nbsp;·&nbsp; **High**
 
 `docker/entrypoint.sh` configures libresidfp and libsidplayfp with
 `CXXFLAGS="-O3"` and no exception flag, then links the bindings with
@@ -290,7 +290,7 @@ Measured effect of the flag change alone, with native parity still green:
 | `libsidplayfp.wasm` (reSIDfp) | 428 709 B | 360 296 B (−16%) |
 | `libsidplayfp.wasm` (SIDLite) | 392 416 B | 319 941 B (−18%) |
 
-### C10 — The engine glue and its binary are a matched pair, and a test mixed them &nbsp;·&nbsp; **Medium**
+### C11 — The engine glue and its binary are a matched pair, and a test mixed them &nbsp;·&nbsp; **Medium**
 
 `test/index.test.ts` loaded the default module — SIDLite — and pointed
 `locateFile` at `../dist/libsidplayfp.wasm`, the reSIDfp binary. The two glue
@@ -306,7 +306,7 @@ BindingError: Cannot use deleted val. handle = 0
 The test asserted only `expect(module).toBeDefined()`, so it had no way to
 notice which binary it had loaded.
 
-### C11 — reSIDfp filter tuning has two different scopes, and upstream does not say so &nbsp;·&nbsp; **Medium**
+### C12 — reSIDfp filter tuning has two different scopes, and upstream does not say so &nbsp;·&nbsp; **Medium**
 
 `ReSIDfpBuilder::filter6581Curve()`, `filter8580Curve()`, and
 `combinedWaveformsStrength()` are applied per chip. `filter6581Range()` and
@@ -332,7 +332,7 @@ found — four golden comparisons that pass in isolation failed in a full-suite
 run. Both the binding and the `.d.ts` now state the scope, and the test that
 exercises them takes its own module instance.
 
-### C8 — `patchStartSong()` trusts unvalidated bytes &nbsp;·&nbsp; **Low**
+### C13 — `patchStartSong()` trusts unvalidated bytes &nbsp;·&nbsp; **Low**
 
 `src/player.ts:223` rewrites offsets `0x10`/`0x11` of any buffer ≥ 0x12 bytes
 without checking the `PSID`/`RSID` magic, then hands the mutated bytes to the
@@ -432,7 +432,7 @@ records → 300 000 individual cross-boundary property writes.
 ### P3 — `renderCycles()` copies unconditionally
 
 Every chunk is `.slice()`d even when the caller consumes it immediately. Correct
-given [C6](#c6), but it means `renderFrames` copies each chunk twice (into the
+given [C8](#c8), but it means `renderFrames` copies each chunk twice (into the
 slice, then into the output buffer).
 
 ### P4 — Render cache peaks at 2× its own budget <a id="p4"></a>
@@ -618,12 +618,14 @@ Applied in the accompanying branch, in severity order:
 | --- | --- |
 | C1 | Sample-budgeted fast-forward with a stall detector; dimensional error removed from `renderFrames` too |
 | C2 | Dead cache-playback state removed; `seekSeconds()` always positions the live context; test asserts audio position, not the return value |
-| C3 | Explicit `NPM_CONFIG_USERCONFIG` per publish; `NODE_AUTH_TOKEN` always defined |
-| C4 | `entrypoint.sh` verifies the pinned commit for both repositories |
-| C5 | New versioning scheme (§8) with `upstream.mjs plan`/`bump`, preflight enforcement, and README documentation |
-| C6 | Transient-buffer contract documented in the binding, the `.d.ts`, and the README example |
-| C7 | `selectSong()` failure reported through `getLastError()` and a new `hasError()`; `lastError` cleared on success |
-| C8 | PSID/RSID magic validated before header patching |
+| C3 | Explicit `NPM_CONFIG_USERCONFIG` per publish, owned by the step that needs it |
+| C4 | Tarball resolved to an absolute path so npm cannot read it as a repo shorthand |
+| C5 | Preflight refuses a commit whose `Verify` run is not green; base image pulled with retries; publish gated behind a smoke test of the exact bytes, and the tag behind a registry reinstall |
+| C6 | `entrypoint.sh` verifies the pinned commit for both repositories |
+| C7 | New versioning scheme (§8) with `upstream.mjs plan`/`bump`, preflight enforcement, and README documentation |
+| C8 | Transient-buffer contract documented in the binding, the `.d.ts`, and the README example |
+| C9 | `selectSong()` failure reported through `getLastError()` and a new `hasError()`; `lastError` cleared on success |
+| C13 | PSID/RSID magic validated before header patching |
 | D1 | `.d.ts`, `dist/package.json`, and `dist/README.md` moved out of the heredoc into checked-in sources |
 | D2 | ROM failure handling extracted to one method |
 | D3 | Shared JS chunk-pump helper |
@@ -637,9 +639,9 @@ Applied in the accompanying branch, in severity order:
 | R2 | `getRomStatus()` exposed |
 | R3 | Argument validation on `configure`, `renderSeconds`, `renderFrames`, `cacheSecondsLimit` |
 | R5 | `dist/.tsbuildinfo` untracked |
-| C9 | One exception ABI across libresidfp, libsidplayfp, and the bindings |
-| C10 | Test loads the binary matching its glue |
-| C11 | Per-chip versus process-global filter scope documented; test isolated |
+| C10 | One exception ABI across libresidfp, libsidplayfp, and the bindings |
+| C11 | Test loads the binary matching its glue |
+| C12 | Per-chip versus process-global filter scope documented; test isolated |
 | M8 | Tautological assertion replaced with a real one |
 
 ### Verification of this branch
