@@ -75,12 +75,19 @@ jobs:
           else
             VERSION_NOTE="Upstream \`${TAG#v}\` is already taken by a downstream fix, so this release takes the next free patch, \`${VERSION}\`. See \"Versioning\" in the README."
           fi
+          cat > /tmp/pr-body.md <<BODY
+          Automated stable-release update pinned to \`${COMMIT}\`.
+
+          ${VERSION_NOTE}
+
+          Verify rebuilds both engines and checks fast native parity. Merging this
+          PR starts the release qualification. Nothing is published before that
+          gate passes, and the git tag and GitHub release are created only after
+          the published package has been reinstalled from the registry and
+          smoke-tested.
+          BODY
           gh pr create \
             --base main \
             --head "$BRANCH" \
             --title "chore: update libsidplayfp to ${TAG}" \
-            --body "Automated stable-release update pinned to ${COMMIT}.
-
-          ${VERSION_NOTE}
-
-          Verify rebuilds both engines and checks fast native parity. Merging this PR starts the release qualification; nothing is published before that gate passes, and \`latest\` moves only after the published package has been reinstalled from the registry and smoke-tested."
+            --body-file /tmp/pr-body.md
