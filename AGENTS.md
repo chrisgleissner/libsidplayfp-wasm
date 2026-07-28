@@ -84,6 +84,14 @@ WebAssembly distribution of libsidplayfp.
      Actions** once trusted publishing works, and your username before that.
   7. Finally set *Publishing access* to **require 2FA and disallow tokens**, so
      the token path is impossible rather than merely unused.
+
+- **Do not merge to `main` while a release is qualifying.** The release preflight
+  waits for the `Verify` run of the exact commit it is releasing, and `Verify`
+  uses `cancel-in-progress` per branch — so a merge cancels the run the release
+  depends on, and the release fails with `Verify concluded 'cancelled'`. A
+  release also pins itself to `main`'s HEAD at dispatch time, so a merge landing
+  between the check and the dispatch silently changes what gets released. Let the
+  release finish first.
 - Do not stage releases through a `next` dist-tag. npm's OIDC credential
   authenticates `npm publish` and nothing else, so moving `latest` afterwards
   would require a long-lived token. The guard is the consumer smoke test run
