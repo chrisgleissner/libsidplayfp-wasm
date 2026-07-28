@@ -232,6 +232,12 @@ jobs:
         env:
           TARBALL: ${{ steps.artifact.outputs.tarball }}
           VERSION: ${{ needs.preflight.outputs.version }}
+          # Bootstrap only. npm cannot configure a trusted publisher for a
+          # package that does not exist, so the first publish of a new name has
+          # no OIDC relationship to exchange against. Once the package exists and
+          # `npm trust github` has run, delete this secret: with it unset, the
+          # publish below authenticates purely through GitHub's OIDC token.
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
           set -euo pipefail
           PACKAGE=$(node -p "require('./package.json').name")
@@ -239,24 +245,28 @@ jobs:
             echo "$PACKAGE@$VERSION is already on npm; versions are immutable, so nothing to do."
             exit 0
           fi
+
           if npm publish "$TARBALL" --access public; then
+            echo "published via trusted publishing"
             exit 0
           fi
-          # npm cannot configure a trusted publisher for a package that does not
-          # exist yet, so the very first publish of a new name needs a one-off
-          # human step. Say which one instead of leaving a 404 to interpret.
-          cat >&2 <<MESSAGE
-          ::error::npm publish failed. If this is the first release of $PACKAGE, its
-          trusted publisher does not exist yet and OIDC has nothing to exchange
-          against. Configure it once, from a machine logged in to npm:
 
-            npm trust github $PACKAGE \
-              --repo ${GITHUB_REPOSITORY} \
-              --file release.yaml
+          if [ -z "${NPM_TOKEN:-}" ]; then
+            cat >&2 <<MESSAGE
+          ::error::npm publish failed and no bootstrap token is configured. If this is
+          the first release of $PACKAGE, its trusted publisher cannot exist yet,
+          because npm requires the package to be published before one can be
+          created. Either set the NPM_TOKEN secret for this one release, or make
+          the package exist another way and then run:
 
-          then re-run this workflow. No repository secret is involved either way.
+            npm trust github $PACKAGE --repo ${GITHUB_REPOSITORY} --file release.yaml
           MESSAGE
-          exit 1
+            exit 1
+          fi
+
+          echo "::warning::Trusted publishing did not authenticate; falling back to the bootstrap NPM_TOKEN. Run 'npm trust github $PACKAGE --repo ${GITHUB_REPOSITORY} --file release.yaml' and delete the NPM_TOKEN secret."
+          npm config set //registry.npmjs.org/:_authToken "$NPM_TOKEN"
+          npm publish "$TARBALL" --access public
 
       - name: Publish to GitHub Packages
         env:

@@ -216,8 +216,12 @@ long-lived token this flow exists to avoid.
 ### One-time npm setup
 
 npm cannot configure a trusted publisher for a package that does not exist yet,
-so the very first release of a new package name needs one human step, run once
-from a machine logged in to npm:
+so the very first release of a new package name is a chicken-and-egg: OIDC has
+no relationship to exchange against, and `npm trust` returns 404 until something
+has been published.
+
+The bootstrap is one release published with an `NPM_TOKEN` repository secret,
+after which the relationship can be created and the secret deleted:
 
 ```bash
 npm trust github @chrisgleissner/libsidplayfp-wasm \
@@ -225,8 +229,8 @@ npm trust github @chrisgleissner/libsidplayfp-wasm \
   --file release.yaml
 ```
 
-After that every release authenticates through GitHub's OIDC token. No npm
-credential is ever stored in the repository.
+With `NPM_TOKEN` unset — the steady state — every release authenticates through
+GitHub's OIDC token and no npm credential exists in the repository.
 
 Production TypeScript line coverage is required to remain at or above 95%
 locally, in GitHub Actions, and in Codecov. The weekly Actions soak renders two

@@ -27,6 +27,13 @@ SYSROOT_PREFIX=/opt/wasm-sysroot
 rm -rf "${BUILD_ROOT}" "${RESIDFP_BUILD_ROOT}"
 mkdir -p "${BUILD_ROOT}" "${RESIDFP_BUILD_ROOT}" "${OUTPUT_ROOT}" "${CACHE_ROOT}" "${SYSROOT_PREFIX}"
 
+# The upstream mirrors under ${CACHE_ROOT} are a bind mount from the host. A CI
+# cache restores them owned by the runner user while this container runs as
+# root, and git then refuses to touch them ("detected dubious ownership",
+# exit 128). The container is ephemeral, single-purpose, and the only thing in
+# it is source we pinned, so trusting its own filesystem is not a concession.
+git config --global --add safe.directory '*'
+
 GIT_URL="https://github.com/libsidplayfp/libsidplayfp"
 RESIDFP_GIT_URL="https://github.com/libsidplayfp/libresidfp"
 
