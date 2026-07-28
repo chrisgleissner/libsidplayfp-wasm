@@ -119,11 +119,10 @@ async function renderLikeSidflow(
     collected += take;
   }
 
-  if (drainEveryChunk) {
-    traces.push(...engine.getAndClearSidWriteTraces().map(traceToTuple));
-  } else {
-    traces.push(...engine.getAndClearSidWriteTraces().map(traceToTuple));
-  }
+  // Unconditional: the streamed mode needs this for the tail left after its
+  // last in-loop drain, and the complete mode needs it for everything. Only the
+  // drain *inside* the loop depends on drainEveryChunk.
+  traces.push(...engine.getAndClearSidWriteTraces().map(traceToTuple));
   return { pcm: pcm.subarray(0, collected), traces };
 }
 
@@ -131,7 +130,7 @@ describe.each(["sidlite", "residfp"] as const)(
   "SIDFlow render contract: %s",
   (engine: SidEngine) => {
     it.each(HVSC_SUBSET)(
-      "renders %s as WAV while preserving every SID register write",
+      "renders $name as WAV while preserving every SID register write",
       async ({ name, file }) => {
         const streamed = new SidAudioEngine({ engine });
         const complete = new SidAudioEngine({ engine });
