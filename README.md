@@ -207,11 +207,14 @@ always identical, so the build states what it contains:
 import { LIBSIDPLAYFP_VERSION, LIBRESIDFP_VERSION } from "libsidplayfp-wasm";
 ```
 
-While this distribution settles, the package keeps its own `0.x` line: an
-upstream engine bump takes a minor, a fix of our own takes a patch.
+This package versions itself, on its own `1.x` line: an upstream engine bump
+takes a minor, a fix of our own takes a patch. So `1.2.0` tells you the binding
+changed, not which libsidplayfp is inside it — the constants above do that.
 
-It will then switch to mirroring upstream, where a release that only advances
-libsidplayfp carries upstream's exact version - `v3.0.2` publishes as `3.0.2`.
+It will switch to mirroring upstream once this distribution has a track record,
+and a release that only advances libsidplayfp will then carry upstream's exact
+version — `v3.0.2` publishing as `3.0.2`.
+
 Because semver has no version between `3.0.2` and `3.0.3`, a fix to *this*
 package takes the next free patch and keeps the same upstream pin, and a mirror
 steps over any number already used:

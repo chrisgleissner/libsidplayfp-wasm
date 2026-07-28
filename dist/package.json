@@ -1,6 +1,6 @@
 {
   "name": "libsidplayfp-wasm-artifact",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "private": true,
   "description": "Build artifact of libsidplayfp-wasm. Not an official libsidplayfp release.",
   "type": "module",

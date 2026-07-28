@@ -1,6 +1,6 @@
 {
   "name": "libsidplayfp-wasm",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Independent WebAssembly distribution of libsidplayfp, the Commodore 64 SID player, with TypeScript bindings.",
   "license": "GPL-2.0-or-later",
   "type": "module",
@@ -34,10 +34,12 @@
       "import": "./dist/index.js"
     },
     "./dist/*": "./dist/*",
-    "./package.json": "./package.json"
+    "./package.json": "./package.json",
+    "./fixtures/*": "./fixtures/*"
   },
   "files": [
     "dist",
+    "fixtures",
     "LICENSE",
     "README.md",
     "THIRD-PARTY-NOTICES.md",

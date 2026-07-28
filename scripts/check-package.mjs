@@ -30,13 +30,21 @@ try {
 
   const entries = run("tar", ["-tzf", tarball]).trim().split("\n");
 
+  // The one SID this package may ship. It is seven register writes that gate a
+  // single sustained note — our own synthetic fixture, not a musical work, and
+  // not from HVSC. Named exactly rather than allowing `fixtures/*.sid`, so the
+  // rule below keeps refusing every tune whose copyright is not ours.
+  const OWN_FIXTURE = "package/fixtures/test-tone-c4.sid";
+
   // Development-only material, and anything whose copyright is not ours to
   // redistribute: C64 ROM images, SID tunes, and the HVSC cache.
   const forbidden = entries.filter((entry) =>
-    /(^|\/)(\.cache|src|test|scripts|docker|node_modules)(\/|$)/i.test(entry) ||
-    /\.(sid|mus|str|prg|p00|d64|t64|rom|bin|7z)$/i.test(entry) ||
-    /(^|\/)(kernal|basic|chargen)([._-]|$)/i.test(entry) ||
-    /(^|\/)\.tsbuildinfo$/i.test(entry),
+    entry !== OWN_FIXTURE && (
+      /(^|\/)(\.cache|src|test|scripts|docker|node_modules)(\/|$)/i.test(entry) ||
+      /\.(sid|mus|str|prg|p00|d64|t64|rom|bin|7z)$/i.test(entry) ||
+      /(^|\/)(kernal|basic|chargen)([._-]|$)/i.test(entry) ||
+      /(^|\/)\.tsbuildinfo$/i.test(entry)
+    ),
   );
   if (forbidden.length > 0) {
     throw new Error(`package contains files it must not distribute: ${forbidden.join(", ")}`);
@@ -65,6 +73,10 @@ try {
     // down would say nothing the parent does not already say.
     "package/dist/sidlite/libsidplayfp.js",
     "package/dist/sidlite/libsidplayfp.d.ts",
+    // Published so consumers can resolve a playable tune from the dependency
+    // rather than from a path into this repository, which is what broke when
+    // the engine stopped being a workspace package downstream.
+    "package/fixtures/test-tone-c4.sid",
   ];
   for (const entry of required) {
     if (!entries.includes(entry)) throw new Error(`package is missing ${entry}`);

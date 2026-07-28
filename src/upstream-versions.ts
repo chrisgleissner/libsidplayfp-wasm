@@ -17,4 +17,4 @@ export const UPSTREAM_COMMITS = {
 } as const;
 
 /** Version of this npm package. */
-export const PACKAGE_VERSION = "1.0.0";
+export const PACKAGE_VERSION = "1.0.1";
