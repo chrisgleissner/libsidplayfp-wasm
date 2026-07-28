@@ -370,3 +370,29 @@ describe("sample-rate validation", () => {
     }
   });
 });
+
+describe("rejected configuration does not stick", () => {
+  it("keeps the previous emulation config when the engine refuses one", async () => {
+    const wasm = await loadLibsidplayfp({
+      engine: "sidlite",
+      locateFile: undefined,
+    });
+    const context = new wasm.SidPlayerContext();
+    try {
+      expect(context.configure(44_100, true)).toBe(true);
+      expect(context.setEmulationConfig({ c64Model: "NTSC" })).toBe(true);
+      const accepted = context.getEmulationConfig();
+
+      // A rejected setting must not be recorded, or it would be handed to the
+      // next context this configuration is applied to.
+      expect(context.setEmulationConfig({ frequency: 1 })).toBe(false);
+      expect(context.getEmulationConfig()).toEqual(accepted);
+
+      expect(context.setEmulationConfig({ c64Model: "ZX81" as never })).toBe(false);
+      expect(context.getEmulationConfig()).toEqual(accepted);
+      expect(context.getSampleRate()).toBe(44_100);
+    } finally {
+      context.delete();
+    }
+  }, 60_000);
+});

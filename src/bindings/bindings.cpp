@@ -457,16 +457,29 @@ public:
             return false;
         }
 
+        // Commit only if the player accepts it. Recording a configuration the
+        // engine rejected would hand it to the next context created.
+        const SidConfig previousConfig = emulationConfig;
+        const uint32_t previousSampleRate = sampleRate;
+        const bool previousStereo = stereo;
+
         emulationConfig = candidate;
         sampleRate = static_cast<uint32_t>(candidate.frequency);
-
         if (hasKey(options, "stereo"))
         {
             stereo = options["stereo"].as<bool>();
             channels = stereo ? 2u : 1u;
         }
 
-        return applyEmulationConfig();
+        if (!applyEmulationConfig())
+        {
+            emulationConfig = previousConfig;
+            sampleRate = previousSampleRate;
+            stereo = previousStereo;
+            channels = stereo ? 2u : 1u;
+            return false;
+        }
+        return true;
     }
 
     emscripten::val getEmulationConfig() const
@@ -868,22 +881,24 @@ public:
     emscripten::val getAndClearSidWriteTracesPacked()
     {
         const size_t count = sidWriteTrace.size();
-        packedTraceScratch.resize(count * 4);
+        // Local, not a member: at the trace cap a member would retain 32 MiB for
+        // the lifetime of the context after a single large drain.
+        std::vector<double> packed(count * 4);
         for (size_t index = 0; index < count; ++index)
         {
             const SidWriteTraceRecord &trace = sidWriteTrace[index];
-            packedTraceScratch[index * 4 + 0] = static_cast<double>(trace.sidNumber);
-            packedTraceScratch[index * 4 + 1] = static_cast<double>(trace.address);
-            packedTraceScratch[index * 4 + 2] = static_cast<double>(trace.value);
-            packedTraceScratch[index * 4 + 3] = static_cast<double>(trace.cyclePhi1);
+            packed[index * 4 + 0] = static_cast<double>(trace.sidNumber);
+            packed[index * 4 + 1] = static_cast<double>(trace.address);
+            packed[index * 4 + 2] = static_cast<double>(trace.value);
+            packed[index * 4 + 3] = static_cast<double>(trace.cyclePhi1);
         }
         clearSidWriteTrace();
 
-        emscripten::val out = emscripten::val::global("Float64Array").new_(packedTraceScratch.size());
-        if (!packedTraceScratch.empty())
+        emscripten::val out = emscripten::val::global("Float64Array").new_(packed.size());
+        if (!packed.empty())
         {
             out.call<void>("set", emscripten::val(emscripten::typed_memory_view(
-                                      packedTraceScratch.size(), packedTraceScratch.data())));
+                                      packed.size(), packed.data())));
         }
         return out;
     }
@@ -1253,7 +1268,6 @@ private:
     uint32_t droppedTraces = 0;
     std::string lastError;
     std::vector<SidWriteTraceRecord> sidWriteTrace;
-    std::vector<double> packedTraceScratch;
 };
 
 EMSCRIPTEN_BINDINGS(libsidplayfp_wasm)
