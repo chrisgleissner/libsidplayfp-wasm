@@ -218,15 +218,29 @@ jobs:
           echo "tarball=$TARBALL" >> "$GITHUB_OUTPUT"
 
       - name: Verify the trusted-publishing environment
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
           set -euo pipefail
           # Trusted publishing exchanges the workflow's OIDC token for a
-          # short-lived registry credential, so no NPM_TOKEN secret exists to
-          # leak or rotate. It requires the package's trusted publisher to name
-          # this repository and this workflow file on npmjs.com.
+          # short-lived registry credential, so in the steady state no npm secret
+          # exists to leak or rotate. It requires the package's trusted publisher
+          # to name this repository and this workflow file on npmjs.com.
+          #
+          # Start from a clean slate: actions/setup-node writes a placeholder
+          # auth line, and a stale token would mask an OIDC misconfiguration.
           npm config delete //registry.npmjs.org/:_authToken || true
-          test -n "${ACTIONS_ID_TOKEN_REQUEST_URL:-}" || { echo "::error::OIDC unavailable: ACTIONS_ID_TOKEN_REQUEST_URL is unset" >&2; exit 1; }
-          test -n "${ACTIONS_ID_TOKEN_REQUEST_TOKEN:-}" || { echo "::error::OIDC unavailable: ACTIONS_ID_TOKEN_REQUEST_TOKEN is unset" >&2; exit 1; }
+          missing=""
+          [ -n "${ACTIONS_ID_TOKEN_REQUEST_URL:-}" ] || missing="ACTIONS_ID_TOKEN_REQUEST_URL"
+          [ -n "${ACTIONS_ID_TOKEN_REQUEST_TOKEN:-}" ] || missing="${missing:+$missing }ACTIONS_ID_TOKEN_REQUEST_TOKEN"
+          if [ -z "$missing" ]; then
+            echo "OIDC is available"
+          elif [ -n "${NPM_TOKEN:-}" ]; then
+            echo "::warning::OIDC unavailable ($missing); the bootstrap NPM_TOKEN will be used."
+          else
+            echo "::error::OIDC unavailable ($missing) and no bootstrap NPM_TOKEN is set. Check that this job grants id-token: write." >&2
+            exit 1
+          fi
 
       - name: Publish to npm
         env:
