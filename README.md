@@ -201,14 +201,17 @@ The release pipeline is strictly ordered and each stage gates the next:
    Firefox, and WebKit, the clean-package check, the complete HVSC #85 edge
    sweep, and native differential parity for both engines.
 3. **Publish** — npm via GitHub OIDC trusted publishing (no token is stored or
-   configured) and GitHub Packages, both under the `next` dist-tag.
-4. **Smoke** — install the published package **from the registry** into an empty
-   directory and play a SID through both engines and both entry points.
-5. **Promote** — only now do `latest`, the git tag, and the GitHub release move.
+   configured) and GitHub Packages.
+4. **Smoke** — install that version **from the registry** into an empty directory
+   and play a SID through both engines and both entry points.
+5. **Promote** — the git tag and GitHub release, only once the registry copy has
+   proved itself.
 
-npm versions are immutable, so promoting last is what makes a bad release
-recoverable: a version that fails its post-publish smoke test is never the one
-`npm install` resolves to.
+npm versions are immutable and cannot be unpublished, so the guard is to smoke
+test the exact bytes before they are published and the registry copy immediately
+after. `latest` is not held back to do it: npm's OIDC credential authenticates
+`npm publish` alone, so staging through a `next` dist-tag would reintroduce the
+long-lived token this flow exists to avoid.
 
 Production TypeScript line coverage is required to remain at or above 95%
 locally, in GitHub Actions, and in Codecov. The weekly Actions soak renders two

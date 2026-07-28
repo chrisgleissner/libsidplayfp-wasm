@@ -41,13 +41,14 @@ WebAssembly distribution of libsidplayfp.
   preflight (the commit's own `Verify` run must be green, and the version must
   be valid and unpublished), qualify (both engines rebuilt, full unit suite
   three times, 95% coverage gate, browser tests, clean-package check, complete
-  HVSC #85 edge sweep, native parity), publish (npm via OIDC trusted publishing
-  — no token — and GitHub Packages, both under the `next` tag), smoke (reinstall
-  the published package from the registry and play a SID), promote (`latest`,
-  the git tag, and the GitHub release).
-- Nothing is promoted to `latest` before the published artifact has proved
-  itself. npm versions are immutable; that ordering is the only thing that makes
-  a bad publish recoverable.
+  HVSC #85 edge sweep, native parity, and a smoke test of the exact tarball),
+  publish (npm via OIDC trusted publishing — no token — and GitHub Packages),
+  smoke (reinstall that version from the registry and play a SID), promote (the
+  git tag and the GitHub release).
+- npm's OIDC credential authenticates `npm publish` and nothing else, so a
+  `next` -> `latest` staging step would need a long-lived token. Do not add one:
+  the guard is smoke-testing the identical bytes before publish and the registry
+  copy after.
 - Never hand-edit `test/fixtures/engine-goldens.json`. Regenerate it only with
   `bun run test:parity -- --update-goldens` after native parity is green.
 

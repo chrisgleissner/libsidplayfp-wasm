@@ -4,14 +4,19 @@ name: Qualify and release
 #
 #   preflight  the commit's own CI is green, the version is valid and unpublished
 #   qualify    rebuild, full suite three times, coverage, browsers, package,
-#              HVSC edge sweep, native differential parity
-#   publish    npm (trusted publishing, no token) under the `next` dist-tag
-#   smoke      install the published package from the registry and play a SID
-#   promote    only now does `latest` move, and only now is a tag/release created
+#              HVSC edge sweep, native differential parity, then a smoke test of
+#              the exact tarball that will be uploaded
+#   publish    npm (OIDC trusted publishing, no token) and GitHub Packages
+#   smoke      reinstall that version from the registry and play a SID
+#   promote    the git tag and GitHub release, only after the registry copy has
+#              proved itself
 #
-# npm versions are immutable, so `latest` moving last is what makes a bad publish
-# recoverable: a version that fails its post-publish smoke test is never the one
-# `npm install` resolves to.
+# npm versions are immutable and cannot be unpublished, so the strongest
+# available guard is to smoke-test the exact bytes before they are published and
+# the registry copy immediately after. `latest` is not held back to do it: npm's
+# OIDC credential authenticates `npm publish` alone (lib/utils/oidc.js is called
+# only from lib/commands/publish.js), so a `next` -> `latest` promotion would
+# need a long-lived token, which is a worse trade than the one it buys.
 
 on:
   pull_request:
@@ -139,14 +144,14 @@ jobs:
           bunx playwright install --with-deps chromium firefox webkit
           bun run test:browser
 
-      - name: Verify clean package and Node consumer
-        run: bun run check:package
-
       - name: Sweep every HVSC #85 edge case with both WASM engines
         run: bun run test:edge
 
       - name: Compare every edge case with native libsidplayfp
         run: bun run test:parity:edge
+
+      - name: Smoke-test the exact bytes that will be published
+        run: bun run check:package
 
       - name: Produce release package, SBOM, and checksums
         env:
@@ -223,7 +228,7 @@ jobs:
           test -n "${ACTIONS_ID_TOKEN_REQUEST_URL:-}" || { echo "::error::OIDC unavailable: ACTIONS_ID_TOKEN_REQUEST_URL is unset" >&2; exit 1; }
           test -n "${ACTIONS_ID_TOKEN_REQUEST_TOKEN:-}" || { echo "::error::OIDC unavailable: ACTIONS_ID_TOKEN_REQUEST_TOKEN is unset" >&2; exit 1; }
 
-      - name: Publish to npm under the `next` tag
+      - name: Publish to npm
         env:
           TARBALL: ${{ steps.artifact.outputs.tarball }}
           VERSION: ${{ needs.preflight.outputs.version }}
@@ -234,8 +239,7 @@ jobs:
             echo "$PACKAGE@$VERSION is already on npm; versions are immutable, so nothing to do."
             exit 0
           fi
-          # `latest` is moved only after the smoke test in the next job.
-          npm publish "$TARBALL" --access public --tag next
+          npm publish "$TARBALL" --access public
 
       - name: Publish to GitHub Packages
         env:
@@ -257,7 +261,7 @@ jobs:
             echo "$PACKAGE@$VERSION is already on GitHub Packages."
             exit 0
           fi
-          npm publish "$TARBALL" --registry=https://npm.pkg.github.com --tag next
+          npm publish "$TARBALL" --registry=https://npm.pkg.github.com
 
       - name: Attest the release artifact
         uses: actions/attest-build-provenance@v2
@@ -309,13 +313,11 @@ jobs:
           node scripts/published-smoke.mjs --package "$PACKAGE" --version "$VERSION"
 
   promote:
-    name: Promote to latest and publish the GitHub release
+    name: Tag and publish the GitHub release
     needs: [preflight, qualify, publish, smoke]
     runs-on: ubuntu-latest
     permissions:
       contents: write
-      packages: write
-      id-token: write
     steps:
       - uses: actions/checkout@v4
         with:
@@ -324,25 +326,11 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          registry-url: https://registry.npmjs.org
-
-      - name: Use an npm with trusted-publishing support
-        run: npm install --global npm@^11.18.0
 
       - uses: actions/download-artifact@v4
         with:
           name: verified-release-${{ needs.preflight.outputs.version }}
           path: release
-
-      - name: Move the `latest` dist-tag onto the smoke-tested version
-        env:
-          VERSION: ${{ needs.preflight.outputs.version }}
-        run: |
-          set -euo pipefail
-          npm config delete //registry.npmjs.org/:_authToken || true
-          PACKAGE=$(node -p "require('./package.json').name")
-          npm dist-tag add "$PACKAGE@$VERSION" latest --registry=https://registry.npmjs.org
-          npm dist-tag rm "$PACKAGE" next --registry=https://registry.npmjs.org || true
 
       - name: Create the GitHub release
         env:
