@@ -6,3 +6,5 @@ coverage-*/
 playwright-report/
 test-results/
 dist/.tsbuildinfo
+dist/complete-source.tar.gz
+dist/complete-source.tar.gz.stamp

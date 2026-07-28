@@ -15,7 +15,7 @@ import { measure } from "../scripts/engine-metrics.mjs";
 
 const ENGINES: SidEngine[] = ["residfp", "sidlite"];
 const TONE = new Uint8Array(
-  readFileSync(path.resolve(import.meta.dirname, "../test-tone-c4.sid")),
+  readFileSync(path.resolve(import.meta.dirname, "fixtures/test-tone-c4.sid")),
 );
 
 describe("upstream provenance", () => {

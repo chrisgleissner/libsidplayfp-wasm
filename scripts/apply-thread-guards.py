@@ -41,12 +41,20 @@ from typing import List
 
 # Declared at namespace scope: the alias site is inside a function body, and a
 # local class may not have member templates.
+# GPL-2.0 section 2(a) requires a modified file to say that it was changed and
+# when. This notice is inserted into the upstream source inside the build
+# container; see MODIFICATIONS.md in the libsidplayfp-wasm repository.
 SHIM_DECLARATION = """
 #if defined(__EMSCRIPTEN__)
-// sidflow: emscripten's runtime here is single-threaded, so constructing a
-// std::thread throws "thread constructor failed: Not supported" and the filter
-// tables are never built. Running each builder inline on construction keeps
-// upstream's construction and join sites untouched.
+// --- MODIFIED by the libsidplayfp-wasm project on 2026-07-28 --------------
+// This file is not upstream as released: the sidThread alias below has been
+// retargeted so filter-table builders run inline.
+// See https://github.com/chrisgleissner/libsidplayfp-wasm (MODIFICATIONS.md).
+//
+// Emscripten's runtime here is single-threaded, so constructing a std::thread
+// throws "thread constructor failed: Not supported" and the filter tables are
+// never built. Running each builder inline on construction keeps upstream's
+// construction and join sites untouched, so the same tables are produced.
 namespace
 {
     struct SidflowInlineThread

@@ -312,7 +312,29 @@ link_engine() {
     # producing an artifact that passes every static check and emits no samples.
     node /opt/libsidplayfp-wasm/scripts/smoke-render.mjs "${output_root}" /opt/libsidplayfp-wasm/test-tone-c4.sid
 
+    # The GPL text that governs the binary, alongside the notices for the
+    # third-party components compiled into it and the changes made to upstream.
+    # Every directory that carries a .wasm carries these too, so an artifact
+    # copied out of the package on its own is still compliant.
     cp COPYING "${output_root}/LICENSE"
+    cp /opt/libsidplayfp-wasm/THIRD-PARTY-NOTICES.md "${output_root}/THIRD-PARTY-NOTICES.md"
+    cp /opt/libsidplayfp-wasm/MODIFICATIONS.md "${output_root}/MODIFICATIONS.md"
+
+    # Record exactly which upstream commits this binary was built from, beside
+    # the binary itself, so the corresponding source is identifiable from the
+    # artifact alone.
+    node -e '
+const { writeFileSync, readFileSync } = require("node:fs");
+const [target, upstreamPath, version] = process.argv.slice(1);
+const upstream = JSON.parse(readFileSync(upstreamPath, "utf8"));
+writeFileSync(target, `${JSON.stringify({
+  package: "@chrisgleissner/libsidplayfp-wasm",
+  version,
+  libsidplayfp: upstream.libsidplayfp,
+  libresidfp: upstream.libresidfp,
+  note: "Complete corresponding source: see THIRD-PARTY-NOTICES.md.",
+}, null, 2)}\n`);
+' "${output_root}/UPSTREAM.json" /opt/libsidplayfp-wasm/upstream.json "${PACKAGE_VERSION}"
 
     # The artifact's package metadata, type surface and README come from
     # checked-in files, so the public contract is reviewed alongside bindings.cpp
@@ -322,9 +344,13 @@ link_engine() {
 const { writeFileSync } = require("node:fs");
 const [target, version] = process.argv.slice(1);
 writeFileSync(target, `${JSON.stringify({
-  name: "libsidplayfp-wasm",
+  // Scoped and private: this manifest exists only so Node treats the sibling
+  // .js as ESM and resolves its types. It is not a publishable package, and an
+  // unscoped "libsidplayfp-wasm" here would read as an official upstream build.
+  name: "@chrisgleissner/libsidplayfp-wasm-artifact",
   version,
-  description: "WebAssembly build of libsidplayfp with embind bindings for TypeScript projects.",
+  private: true,
+  description: "Build artifact of @chrisgleissner/libsidplayfp-wasm. Not an official libsidplayfp release.",
   type: "module",
   main: "./libsidplayfp.js",
   module: "./libsidplayfp.js",

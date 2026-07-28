@@ -1,7 +1,8 @@
 {
-  "name": "libsidplayfp-wasm",
+  "name": "@chrisgleissner/libsidplayfp-wasm-artifact",
   "version": "0.1.0",
-  "description": "WebAssembly build of libsidplayfp with embind bindings for TypeScript projects.",
+  "private": true,
+  "description": "Build artifact of @chrisgleissner/libsidplayfp-wasm. Not an official libsidplayfp release.",
   "type": "module",
   "main": "./libsidplayfp.js",
   "module": "./libsidplayfp.js",

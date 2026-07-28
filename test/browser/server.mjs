@@ -11,7 +11,7 @@ createServer((request, response) => {
     response.writeHead(200, { "Content-Type": "text/html", "Cache-Control": "no-store" }).end("<!doctype html><title>libsidplayfp WASM</title>");
     return;
   }
-  const relative = pathname === "/test-tone-c4.sid" ? pathname.slice(1) : pathname.replace(/^\/dist\//, "dist/");
+  const relative = pathname === "/test-tone-c4.sid" ? "test/fixtures/test-tone-c4.sid" : pathname.replace(/^\/dist\//, "dist/");
   const file = path.resolve(root, relative);
   if (!file.startsWith(root) || !existsSync(file)) {
     response.writeHead(404).end();

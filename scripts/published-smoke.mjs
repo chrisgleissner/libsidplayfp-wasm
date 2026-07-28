@@ -37,7 +37,7 @@ const packageName = readOption("package");
 const version = readOption("version");
 const registry = readOption("registry", "https://registry.npmjs.org");
 const packageRoot = path.resolve(import.meta.dirname, "..");
-const fixture = path.join(packageRoot, "test-tone-c4.sid");
+const fixture = path.join(packageRoot, "test", "fixtures", "test-tone-c4.sid");
 
 const scratch = mkdtempSync(path.join(tmpdir(), "libsidplayfp-wasm-published-"));
 

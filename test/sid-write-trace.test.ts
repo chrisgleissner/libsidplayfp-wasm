@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { SidAudioEngine, type SidWriteTrace } from '../src/player.js';
 
-const testSidPath = resolve(__dirname, '../test-tone-c4.sid');
+const testSidPath = resolve(__dirname, 'fixtures/test-tone-c4.sid');
 let testSidData: Uint8Array;
 
 beforeAll(() => {

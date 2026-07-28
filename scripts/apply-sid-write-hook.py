@@ -51,11 +51,18 @@ HOOK_SYMBOL = "sidflow_sid_write_hook"
 
 INCLUDE_ANCHOR = '#include "sidemu.h"\n'
 
+# GPL-2.0 section 2(a) requires a modified file to say that it was changed and
+# when. This notice is inserted into the upstream source inside the build
+# container; see MODIFICATIONS.md in the libsidplayfp-wasm repository.
 HOOK_DECLARATION = '''
-// --- sidflow: SID register write trace hook -------------------------------
-// Defined in bindings.cpp. Null unless tracing has been explicitly enabled, in
-// which case it receives every CPU write to a SID register. It observes only —
-// it must never be able to influence emulation output.
+// --- MODIFIED by the libsidplayfp-wasm project on 2026-07-28 --------------
+// This file is not upstream libsidplayfp as released. A SID register
+// write-trace hook has been added below and invoked from sidemu::writeReg.
+// See https://github.com/chrisgleissner/libsidplayfp-wasm (MODIFICATIONS.md).
+//
+// The pointer is defined in bindings.cpp and is null unless tracing has been
+// explicitly enabled, in which case it receives every CPU write to a SID
+// register. It observes only — it can never influence emulation output.
 extern "C" void (*sidflow_sid_write_hook)(const void *emu, unsigned int addr,
                                           unsigned int data, long long cyclePhi1);
 // --------------------------------------------------------------------------

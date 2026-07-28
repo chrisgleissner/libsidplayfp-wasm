@@ -1,6 +1,15 @@
-This package is licensed under version 2 of the GNU General Public License, or
-at your option any later version. Included upstream materials retain their
-copyright and license notices.
+@chrisgleissner/libsidplayfp-wasm is licensed under version 2 of the GNU
+General Public License, or at your option any later version. The full text
+follows.
+
+The distributed WebAssembly binaries incorporate third-party components that
+retain their own copyright and licence notices. Those components, their
+licences, and how to obtain the complete corresponding source for the binaries
+are recorded in THIRD-PARTY-NOTICES.md. Changes this project makes to upstream
+sources before compiling them are recorded in MODIFICATIONS.md.
+
+This is an independent redistribution and is not endorsed by or affiliated with
+the libsidplayfp project.
 
                     GNU GENERAL PUBLIC LICENSE
                        Version 2, June 1991

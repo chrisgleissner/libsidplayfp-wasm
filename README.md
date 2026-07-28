@@ -243,10 +243,35 @@ WebAssembly heap to stay flat afterwards, so long-running players do not leak.
 Every release ships a CycloneDX SBOM, SHA-256 checksums, and build provenance
 attestation.
 
-## License
+## Licence and attribution
 
-GPL-2.0-or-later, the same as libsidplayfp. The package includes modified
-libsidplayfp and libresidfp builds; their exact source pins, build scripts, and
-license are in this repository.
+GPL-2.0-or-later, the same as libsidplayfp.
+
+The distributed `.wasm` binaries are object code covered by the GPL. They also
+incorporate MIT-licensed components (Cra3z's `hashlib`, which provides the MD5
+behind `getTuneMd5()`; musl; the Emscripten runtime) and LLVM runtime libraries
+under Apache-2.0 with LLVM Exceptions.
+
+* [`LICENSE`](LICENSE) — the GPL-2.0 text.
+* [`THIRD-PARTY-NOTICES.md`](THIRD-PARTY-NOTICES.md) — every component compiled
+  into the binaries, with its licence and copyright.
+* **`dist/complete-source.tar.gz`, inside this package** — the complete
+  corresponding source for the binaries: both upstream projects at their exact
+  pinned commits, the modifications applied to them, the bindings, and the
+  build. The same archive is attached to every GitHub release.
+* [`MODIFICATIONS.md`](MODIFICATIONS.md) — what this project changes in
+  libsidplayfp and libresidfp before compiling them. Nothing there alters the
+  emulation; the audio path is upstream's own.
+
+`upstream.json`, the exported `UPSTREAM_COMMITS`, and the `UPSTREAM.json` file
+beside each artifact record the exact commits a given binary was built from.
+
+**This is an independent redistribution.** It is not an official libsidplayfp,
+libresidfp, or SIDLite product, and it is not endorsed by or affiliated with
+their authors. Report problems here, not upstream — unless a native sidplayfp
+reproduces the same behaviour, in which case upstream is the right place.
+
+No Commodore 64 ROMs, SID tunes, or music corpora are distributed. See
+[`THIRD-PARTY-NOTICES.md`](THIRD-PARTY-NOTICES.md#not-distributed).
 
 Contributing? See [`AGENTS.md`](AGENTS.md).

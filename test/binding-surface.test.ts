@@ -131,7 +131,7 @@ describe.each<SidEngine>(["residfp", "sidlite"])("determinism: %s", (engine) => 
       expect(context.configure(44_100, true)).toBe(true);
       expect(
         context.loadSidBuffer(
-          new Uint8Array(readFileSync(path.join(ROOT, "test-tone-c4.sid"))),
+          new Uint8Array(readFileSync(path.join(ROOT, "test", "fixtures", "test-tone-c4.sid"))),
         ),
       ).toBe(true);
 

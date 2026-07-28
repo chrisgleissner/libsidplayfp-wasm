@@ -164,6 +164,9 @@ jobs:
           mkdir -p release
           npm pack --ignore-scripts --pack-destination release
           npm sbom --sbom-format cyclonedx --omit=dev > release/sbom.cdx.json
+          # dist/complete-source.tar.gz already ships inside the tarball; this
+          # is the version-named copy attached to the release.
+          node scripts/complete-source.mjs --out release
           STAGE="release/libsidplayfp-wasm-${VERSION}"
           mkdir -p "$STAGE/sidlite"
           for file in libsidplayfp.js libsidplayfp.wasm libsidplayfp.d.ts LICENSE README.md; do
@@ -172,7 +175,8 @@ jobs:
           done
           (cd "$STAGE" && find . -type f -printf '%P\n' | sort | xargs sha256sum > ../SHA256SUMS)
           tar -czf "release/libsidplayfp-wasm-${VERSION}.tar.gz" -C release "libsidplayfp-wasm-${VERSION}"
-          (cd release && sha256sum *.tgz "libsidplayfp-wasm-${VERSION}.tar.gz" sbom.cdx.json > RELEASE-SHA256SUMS)
+          (cd release && sha256sum *.tgz "libsidplayfp-wasm-${VERSION}.tar.gz" \
+            "libsidplayfp-wasm-${VERSION}-complete-source.tar.gz" sbom.cdx.json > RELEASE-SHA256SUMS)
 
       - uses: actions/upload-artifact@v4
         with:
@@ -388,10 +392,13 @@ jobs:
           gh release create "v$VERSION" \
             release/*.tgz \
             "release/libsidplayfp-wasm-${VERSION}.tar.gz" \
+            "release/libsidplayfp-wasm-${VERSION}-complete-source.tar.gz" \
             release/SHA256SUMS \
             release/RELEASE-SHA256SUMS \
             release/sbom.cdx.json \
             --target "$SHA" \
             --title "libsidplayfp WASM $VERSION" \
-            --notes "Contains libsidplayfp \`$UPSTREAM\` and libresidfp \`$RESIDFP\`. Published to npm and verified by installing it back from the registry." \
+            --notes "Contains libsidplayfp \`$UPSTREAM\` and libresidfp \`$RESIDFP\`. Published to npm and verified by installing it back from the registry.
+
+The \`-complete-source.tar.gz\` asset is the complete corresponding source for the WebAssembly binaries in this release, as required by the GPL: both upstream projects at their pinned commits, the modifications applied to them, the bindings, and the build." \
             --generate-notes

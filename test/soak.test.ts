@@ -11,7 +11,7 @@ const VIRTUAL_SECONDS = Number(
 const SAMPLE_RATE = 44_100;
 const CHANNELS = 2;
 const TONE = new Uint8Array(
-  readFileSync(path.resolve(import.meta.dirname, "../test-tone-c4.sid")),
+  readFileSync(path.resolve(import.meta.dirname, "fixtures/test-tone-c4.sid")),
 );
 
 type HeapExport = { HEAPU8?: Uint8Array };
