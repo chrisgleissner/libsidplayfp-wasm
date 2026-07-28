@@ -32,15 +32,42 @@ WebAssembly distribution of libsidplayfp.
   downstream-only fix, `adopt-mirror` to leave the 0.x line. `verify` runs in CI
   and in the release preflight, and `src/upstream-versions.ts` is generated —
   regenerate it with `bun run version:constants`.
-- The two versioning modes and the drift rule are documented under "Versioning"
-  in `README.md`. Read it before changing anything that touches a version.
+- The two versioning modes and the drift rule are summarised for users under
+  "Which libsidplayfp am I getting?" in `README.md`. The maintainer commands are:
+
+  ```bash
+  bun run version:verify        # invariants; also runs in CI and the preflight
+  bun run version:bump          # downstream-only fix release
+  bun run version:adopt-mirror  # leave the 0.x line, start mirroring upstream
+  bun run version:constants     # regenerate src/upstream-versions.ts
+  ```
+
+- npm authentication is OIDC trusted publishing: the workflow exchanges GitHub's
+  id-token for a short-lived registry credential, so in the steady state no npm
+  secret exists. npm cannot create a trusted publisher for a package that does
+  not exist yet, so the first release of a new package name needs a one-off
+  `NPM_TOKEN` repository secret. Immediately afterwards, run
+
+  ```bash
+  npm trust github @chrisgleissner/libsidplayfp-wasm \
+    --repo chrisgleissner/libsidplayfp-wasm --file release.yaml
+  ```
+
+  delete the secret, and remove the fallback branch from `release.yaml`.
+- Do not stage releases through a `next` dist-tag. npm's OIDC credential
+  authenticates `npm publish` and nothing else, so moving `latest` afterwards
+  would require a long-lived token. The guard is the consumer smoke test run
+  against the exact tarball before publishing and against the registry copy
+  after; `scripts/consumer-smoke.mjs` is shared by both so they cannot diverge.
+- `README.md` is written for users of the library. Release mechanics, tokens,
+  and workflow internals belong here, not there.
 - `.github/workflows/upstream-watch.yaml` accepts only stable upstream GitHub
   releases and opens an update PR. Merging that PR invokes the exhaustive
   release qualification workflow.
 - The release workflow is the only publisher, and its stages gate one another:
   preflight (the commit's own `Verify` run must be green, and the version must
   be valid and unpublished), qualify (both engines rebuilt, full unit suite
-  three times, 95% coverage gate, browser tests, clean-package check, complete
+  three times, 99% coverage gate, browser tests, clean-package check, complete
   HVSC #85 edge sweep, native parity, and a smoke test of the exact tarball),
   publish (npm via OIDC trusted publishing — no token — and GitHub Packages),
   smoke (reinstall that version from the registry and play a SID), promote (the
@@ -76,7 +103,7 @@ run fetches and checksum-verifies HVSC #85 and the VICE ROM cache. Reuse the
 cache; do not add fixtures by downloading individual tunes from arbitrary
 servers.
 
-`test:coverage` writes LCOV and fails below 95% production TypeScript line
+`test:coverage` writes LCOV and fails below 99% production TypeScript line
 coverage. `test:browser` exercises Chromium, Android-sized Chromium, Firefox,
 and WebKit, including concurrent module-worker playback. `test:soak` performs
 the 30-minute local virtual-playback memory qualification; the scheduled weekly

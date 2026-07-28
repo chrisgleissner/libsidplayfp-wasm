@@ -4,7 +4,7 @@ import path from "node:path";
 const reportPath = path.resolve(
   process.env.COVERAGE_LCOV_PATH ?? "coverage/lcov.info",
 );
-const minimum = Number(process.env.MIN_LINE_COVERAGE ?? "95");
+const minimum = Number(process.env.MIN_LINE_COVERAGE ?? "100");
 
 if (!Number.isFinite(minimum) || minimum <= 0 || minimum > 100) {
   throw new Error(

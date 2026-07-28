@@ -1,0 +1,98 @@
+name: Feature request
+description: Propose a new API, an exposed libsidplayfp capability, or an enhancement
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Feature requests are welcome. If you are able to implement it yourself, a pull
+        request is strongly preferred.
+
+        Note that this package is a *distribution* of libsidplayfp: it compiles upstream
+        unmodified and exposes it to JavaScript. Changes to how the SID is emulated belong
+        [upstream](https://github.com/libsidplayfp/libsidplayfp); exposing something
+        upstream already does belongs here.
+
+  - type: dropdown
+    id: kind
+    attributes:
+      label: What kind of change is this?
+      options:
+        - Expose an existing libsidplayfp capability that is not currently bound
+        - New behaviour in the SidAudioEngine wrapper
+        - Packaging, bundler, or runtime support
+        - Types or documentation
+        - Something else
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem statement
+      description: The problem or limitation you are hitting, not the solution you have in mind.
+      placeholder: |
+        What are you trying to build?
+        What stops you today, and what workaround are you using instead?
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed API
+      description: >-
+        Sketch how it would look from a caller's point of view. Concrete code is far more
+        useful than a description.
+      placeholder: |
+        ```ts
+        // How you would want to use it
+        ```
+    validations:
+      required: true
+
+  - type: input
+    id: upstream
+    attributes:
+      label: Corresponding libsidplayfp API
+      description: >-
+        If this exposes something upstream already provides, name it — for example
+        `sidplayfp::getSidStatus`, `SidConfig::ciaModel`, `SidTune::createMD5New`. Leave
+        blank if it is new behaviour on this side.
+      placeholder: "e.g. sidplayfp::getCia1TimerA (src/sidplayfp/sidplayfp.h)"
+    validations:
+      required: false
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      placeholder: |
+        - Other approaches:
+        - Why they are insufficient:
+    validations:
+      required: false
+
+  - type: textarea
+    id: impact
+    attributes:
+      label: Compatibility and impact
+      description: >-
+        This package is a stable dependency for players, so breaking changes and hot-path
+        costs matter. Note anything relevant.
+      placeholder: |
+        Would this change existing behaviour or types?
+        Does it touch the render hot path?
+        Does it need to work in browsers, or is it Node-only?
+        Does it apply to both engines, or only reSIDfp?
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: pr
+    attributes:
+      label: Contribution
+      options:
+        - label: I am willing and able to submit a pull request implementing this.
+          required: false
