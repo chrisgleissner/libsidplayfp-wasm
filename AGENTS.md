@@ -49,7 +49,7 @@ WebAssembly distribution of libsidplayfp.
   `NPM_TOKEN` repository secret. Immediately afterwards, run
 
   ```bash
-  npm trust github @chrisgleissner/libsidplayfp-wasm \
+  npm trust github libsidplayfp-wasm \
     --repo chrisgleissner/libsidplayfp-wasm --file release.yaml
   ```
 
@@ -69,9 +69,10 @@ WebAssembly distribution of libsidplayfp.
   be valid and unpublished), qualify (both engines rebuilt, full unit suite
   three times, 100% coverage gate, browser tests, clean-package check, complete
   HVSC #85 edge sweep, native parity, and a smoke test of the exact tarball),
-  publish (npm via OIDC trusted publishing — no token — and GitHub Packages),
-  smoke (reinstall that version from the registry and play a SID), promote (the
-  git tag and the GitHub release).
+  publish (npm via OIDC trusted publishing, with no stored credential), smoke
+  (reinstall that version from the registry and play a SID), promote (the git
+  tag and the GitHub release). GitHub Packages is not a target: it requires
+  scoped names, and this package is deliberately unscoped.
 - npm's OIDC credential authenticates `npm publish` and nothing else, so a
   `next` -> `latest` staging step would need a long-lived token. Do not add one:
   the guard is smoke-testing the identical bytes before publish and the registry

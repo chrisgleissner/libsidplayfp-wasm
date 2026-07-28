@@ -328,7 +328,7 @@ const { writeFileSync, readFileSync } = require("node:fs");
 const [target, upstreamPath, version] = process.argv.slice(1);
 const upstream = JSON.parse(readFileSync(upstreamPath, "utf8"));
 writeFileSync(target, `${JSON.stringify({
-  package: "@chrisgleissner/libsidplayfp-wasm",
+  package: "libsidplayfp-wasm",
   version,
   libsidplayfp: upstream.libsidplayfp,
   libresidfp: upstream.libresidfp,
@@ -347,10 +347,10 @@ writeFileSync(target, `${JSON.stringify({
   // Scoped and private: this manifest exists only so Node treats the sibling
   // .js as ESM and resolves its types. It is not a publishable package, and an
   // unscoped "libsidplayfp-wasm" here would read as an official upstream build.
-  name: "@chrisgleissner/libsidplayfp-wasm-artifact",
+  name: "libsidplayfp-wasm-artifact",
   version,
   private: true,
-  description: "Build artifact of @chrisgleissner/libsidplayfp-wasm. Not an official libsidplayfp release.",
+  description: "Build artifact of libsidplayfp-wasm. Not an official libsidplayfp release.",
   type: "module",
   main: "./libsidplayfp.js",
   module: "./libsidplayfp.js",

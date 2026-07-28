@@ -31,7 +31,7 @@ body:
       description: |
         ```ts
         import { PACKAGE_VERSION, LIBSIDPLAYFP_VERSION, LIBRESIDFP_VERSION }
-          from "@chrisgleissner/libsidplayfp-wasm";
+          from "libsidplayfp-wasm";
         console.log({ PACKAGE_VERSION, LIBSIDPLAYFP_VERSION, LIBRESIDFP_VERSION });
         ```
       placeholder: |

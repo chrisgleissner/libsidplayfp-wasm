@@ -1,5 +1,5 @@
 {
-  "package": "@chrisgleissner/libsidplayfp-wasm",
+  "package": "libsidplayfp-wasm",
   "version": "0.1.0",
   "libsidplayfp": {
     "repository": "https://github.com/libsidplayfp/libsidplayfp",

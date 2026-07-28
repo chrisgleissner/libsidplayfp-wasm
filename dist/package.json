@@ -1,8 +1,8 @@
 {
-  "name": "@chrisgleissner/libsidplayfp-wasm-artifact",
+  "name": "libsidplayfp-wasm-artifact",
   "version": "0.1.0",
   "private": true,
-  "description": "Build artifact of @chrisgleissner/libsidplayfp-wasm. Not an official libsidplayfp release.",
+  "description": "Build artifact of libsidplayfp-wasm. Not an official libsidplayfp release.",
   "type": "module",
   "main": "./libsidplayfp.js",
   "module": "./libsidplayfp.js",
