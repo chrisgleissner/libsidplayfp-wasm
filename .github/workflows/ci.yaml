@@ -1,0 +1,86 @@
+name: Verify
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# One run per branch. The release preflight resolves "the Verify run for this
+# commit" by head SHA, so superseded runs piling up on a branch make that lookup
+# ambiguous as well as wasteful.
+concurrency:
+  group: verify-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Build, playback, package, and native parity
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      # Before anything expensive: a workflow that GitHub cannot parse is
+      # reported as a failed run with no jobs, and `yaml.safe_load` does not
+      # catch it — a blank line inside a quoted multi-line argument silently
+      # ends the surrounding block scalar.
+      - name: Lint the workflows
+        uses: docker://rhysd/actionlint:1.7.7
+        with:
+          args: -color
+
+      - uses: ./.github/actions/setup-build
+        with:
+          cache-key-prefix: verify
+
+      - name: Check the upstream pin and version invariants
+        run: node scripts/upstream.mjs verify
+
+      - name: Run full unit suite with the 100% line-coverage gate
+        run: bun run test:coverage
+
+      - name: Upload the verified LCOV report to Codecov
+        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: coverage/lcov.info
+          fail_ci_if_error: true
+          verbose: true
+
+      - name: Install browser runtime
+        run: bunx playwright install --with-deps chromium firefox webkit
+
+      - name: Verify browser loading for both engines
+        run: bun run test:browser
+
+      - name: Verify the clean npm payload and Node consumer
+        run: bun run check:package
+
+      # The package declares a supported Node range, so prove it rather than
+      # assert it. The build above happens once; each of these re-installs the
+      # packed tarball into a clean project and plays a SID through both engines
+      # under that runtime, which takes seconds.
+      - name: Verify the packed package on Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: bun run check:package
+
+      - name: Verify the packed package on Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: bun run check:package
+
+      - name: Restore Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Compare both WASM engines with native libsidplayfp
+        run: bun run test:parity

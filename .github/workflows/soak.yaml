@@ -1,0 +1,29 @@
+name: Weekly playback soak
+
+on:
+  schedule:
+    - cron: "17 3 * * 0"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  soak:
+    # Two hours of *emulated* playback per engine, not two hours of wall clock.
+    # Rendering is roughly 90x realtime, so the job itself takes under ten
+    # minutes; the timeout is sized for the WASM rebuild that precedes it.
+    name: Dual-engine memory soak over two virtual hours
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ./.github/actions/setup-build
+        with:
+          cache-key-prefix: soak
+
+      - name: Render two virtual hours per engine without WASM heap growth
+        env:
+          LIBSIDPLAYFP_WASM_SOAK_SECONDS: "7200"
+        run: bun run test:soak

@@ -1,0 +1,360 @@
+name: Qualify and release
+
+# Release order is fixed and each step gates the next:
+#
+#   preflight  the commit's own CI is green, the version is valid and unpublished
+#   qualify    rebuild, full suite three times, coverage, browsers, package,
+#              HVSC edge sweep, native differential parity, then a smoke test of
+#              the exact tarball that will be uploaded
+#   publish    npm, via OIDC trusted publishing with no stored credential
+#   smoke      reinstall that version from the registry and play a SID
+#   promote    the git tag and GitHub release, only after the registry copy has
+#              proved itself
+#
+# npm versions are immutable and cannot be unpublished, so the strongest
+# available guard is to smoke-test the exact bytes before they are published and
+# the registry copy immediately after. `latest` is not held back to do it: npm's
+# OIDC credential authenticates `npm publish` alone (lib/utils/oidc.js is called
+# only from lib/commands/publish.js), so a `next` -> `latest` promotion would
+# need a long-lived token, which is a worse trade than the one it buys.
+
+on:
+  pull_request:
+    types: [closed]
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Expected version to release, as a cross-check (for example 3.0.2). Leave empty to accept whatever package.json says."
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  preflight:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.pull_request.merged == true &&
+       (startsWith(github.event.pull_request.head.ref, 'automation/libsidplayfp-v') ||
+        contains(github.event.pull_request.labels.*.name, 'release')))
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      sha: ${{ steps.version.outputs.sha }}
+      needed: ${{ steps.version.outputs.needed }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Require the release commit's own CI to be green
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          SHA=$(git rev-parse HEAD)
+          echo "Release commit: $SHA"
+          # The qualify job below re-runs everything, but it runs on its own
+          # machine. Refusing to release a commit whose Verify workflow is red
+          # means a regression cannot reach the registry just because a second,
+          # luckier run happened to pass.
+          for attempt in $(seq 1 60); do
+            CONCLUSION=$(gh api "repos/${GITHUB_REPOSITORY}/actions/workflows/ci.yaml/runs?head_sha=${SHA}&per_page=1" \
+              --jq '.workflow_runs[0].conclusion // "missing"')
+            STATUS=$(gh api "repos/${GITHUB_REPOSITORY}/actions/workflows/ci.yaml/runs?head_sha=${SHA}&per_page=1" \
+              --jq '.workflow_runs[0].status // "missing"')
+            echo "Verify run for ${SHA}: status=${STATUS} conclusion=${CONCLUSION} (attempt ${attempt}/60)"
+            if [ "$STATUS" = "completed" ]; then
+              if [ "$CONCLUSION" = "success" ]; then
+                exit 0
+              fi
+              echo "::error::Verify concluded '${CONCLUSION}' for ${SHA}. Refusing to release a commit whose CI is not green." >&2
+              exit 1
+            fi
+            sleep 30
+          done
+          echo "::error::Timed out waiting for the Verify workflow on ${SHA}." >&2
+          exit 1
+
+      - name: Resolve and validate the release version
+        id: version
+        env:
+          REQUESTED_VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          PACKAGE=$(node -p "require('./package.json').name")
+          # Assign, then replace on failure. `A=$(cmd) || A=fallback` overwrites,
+          # whereas `A=$(cmd || echo fallback)` concatenates npm's error object
+          # with the fallback and yields invalid JSON.
+          PUBLISHED=$(npm view "$PACKAGE" versions --json --registry=https://registry.npmjs.org 2>/dev/null) || PUBLISHED='[]'
+          # `verify` enforces the versioning rules in README.md: a stable
+          # version, never below the pinned upstream release, generated
+          # constants in step, and not already published.
+          node scripts/upstream.mjs verify --published "$PUBLISHED"
+          VERSION=$(node -p "require('./package.json').version")
+          if [ -n "${REQUESTED_VERSION:-}" ] && [ "$REQUESTED_VERSION" != "$VERSION" ]; then
+            echo "::error::Requested $REQUESTED_VERSION but package.json says $VERSION" >&2
+            exit 1
+          fi
+          if git ls-remote --exit-code --tags origin "v${VERSION}" >/dev/null 2>&1; then
+            echo "Release v${VERSION} already exists; nothing to publish."
+            echo "needed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "needed=true" >> "$GITHUB_OUTPUT"
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+  qualify:
+    needs: preflight
+    if: needs.preflight.outputs.needed == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.preflight.outputs.sha }}
+
+      - uses: ./.github/actions/setup-build
+        with:
+          cache-key-prefix: release
+
+      - name: Require three consecutive full unit-suite passes
+        run: |
+          set -euo pipefail
+          echo "=== full unit suite 1/3 with coverage ==="
+          bun run test:coverage
+          for run in 2 3; do
+            echo "=== full unit suite ${run}/3 ==="
+            bun run test
+          done
+
+      - name: Install browser runtime and test both engines
+        run: |
+          set -euo pipefail
+          bunx playwright install --with-deps chromium firefox webkit
+          bun run test:browser
+
+      - name: Sweep every HVSC #85 edge case with both WASM engines
+        run: bun run test:edge
+
+      - name: Compare every edge case with native libsidplayfp
+        run: bun run test:parity:edge
+
+      - name: Smoke-test the exact bytes that will be published
+        run: bun run check:package
+
+      - name: Produce release package, SBOM, and checksums
+        env:
+          VERSION: ${{ needs.preflight.outputs.version }}
+        run: |
+          set -euo pipefail
+          mkdir -p release
+          npm pack --ignore-scripts --pack-destination release
+          npm sbom --sbom-format cyclonedx --omit=dev > release/sbom.cdx.json
+          # dist/complete-source.tar.gz already ships inside the tarball; this
+          # is the version-named copy attached to the release.
+          node scripts/complete-source.mjs --out release
+          STAGE="release/libsidplayfp-wasm-${VERSION}"
+          mkdir -p "$STAGE/sidlite"
+          for file in libsidplayfp.js libsidplayfp.wasm libsidplayfp.d.ts LICENSE README.md; do
+            cp "dist/$file" "$STAGE/$file"
+            cp "dist/sidlite/$file" "$STAGE/sidlite/$file"
+          done
+          (cd "$STAGE" && find . -type f -printf '%P\n' | sort | xargs sha256sum > ../SHA256SUMS)
+          tar -czf "release/libsidplayfp-wasm-${VERSION}.tar.gz" -C release "libsidplayfp-wasm-${VERSION}"
+          # ./*.tgz, not *.tgz: a filename beginning with a dash would otherwise
+          # be read as an option (shellcheck SC2035).
+          (cd release && sha256sum ./*.tgz "libsidplayfp-wasm-${VERSION}.tar.gz" \
+            "libsidplayfp-wasm-${VERSION}-complete-source.tar.gz" sbom.cdx.json > RELEASE-SHA256SUMS)
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: verified-release-${{ needs.preflight.outputs.version }}
+          path: release/
+          if-no-files-found: error
+
+  publish:
+    needs: [preflight, qualify]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.preflight.outputs.sha }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+
+      - name: Use an npm with trusted-publishing support
+        run: |
+          set -euo pipefail
+          npm install --global npm@^11.18.0
+          npm --version
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: verified-release-${{ needs.preflight.outputs.version }}
+          path: release
+
+      - name: Resolve and re-verify the exact artifact to publish
+        id: artifact
+        run: |
+          set -euo pipefail
+          # An absolute path: npm parses a bare `dir/file.tgz` argument as the
+          # GitHub `owner/repo` shorthand and tries to clone it.
+          TARBALL=$(find "$PWD/release" -maxdepth 1 -name '*.tgz' -print -quit)
+          test -n "$TARBALL"
+          (cd release && sha256sum --check --ignore-missing RELEASE-SHA256SUMS)
+          node scripts/check-package.mjs --tarball "$TARBALL"
+          echo "tarball=$TARBALL" >> "$GITHUB_OUTPUT"
+
+      - name: Verify the trusted-publishing environment
+        run: |
+          set -euo pipefail
+          # Trusted publishing exchanges the workflow's OIDC token for a
+          # short-lived registry credential, so no npm secret exists. Start from
+          # a clean slate: actions/setup-node writes a placeholder auth line, and
+          # a stale token would mask an OIDC misconfiguration.
+          npm config delete //registry.npmjs.org/:_authToken || true
+          missing=""
+          [ -n "${ACTIONS_ID_TOKEN_REQUEST_URL:-}" ] || missing="ACTIONS_ID_TOKEN_REQUEST_URL"
+          [ -n "${ACTIONS_ID_TOKEN_REQUEST_TOKEN:-}" ] || missing="${missing:+$missing }ACTIONS_ID_TOKEN_REQUEST_TOKEN"
+          if [ -n "$missing" ]; then
+            echo "::error::OIDC unavailable ($missing). This job must grant id-token: write." >&2
+            exit 1
+          fi
+          echo "OIDC is available"
+
+      - name: Publish to npm
+        env:
+          TARBALL: ${{ steps.artifact.outputs.tarball }}
+          VERSION: ${{ needs.preflight.outputs.version }}
+        run: |
+          set -euo pipefail
+          PACKAGE=$(node -p "require('./package.json').name")
+          if npm view "$PACKAGE@$VERSION" version --registry=https://registry.npmjs.org >/dev/null 2>&1; then
+            echo "$PACKAGE@$VERSION is already on npm; versions are immutable, so nothing to do."
+            exit 0
+          fi
+          # Authenticated by the OIDC token exchange, against the trusted
+          # publisher registered for this repository and this workflow file.
+          # Renaming this file breaks publishing until that registration is
+          # updated to match.
+          npm publish "$TARBALL" --access public
+
+      - name: Attest the release artifact
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: release/*.tgz
+
+  smoke:
+    name: Smoke-test the published package
+    needs: [preflight, publish]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.preflight.outputs.sha }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+
+      - name: Wait for the published version to become resolvable
+        env:
+          VERSION: ${{ needs.preflight.outputs.version }}
+        run: |
+          set -euo pipefail
+          PACKAGE=$(node -p "require('./package.json').name")
+          for attempt in $(seq 1 30); do
+            RESOLVED=$(npm view "$PACKAGE@$VERSION" version --registry=https://registry.npmjs.org 2>/dev/null || true)
+            if [ "$RESOLVED" = "$VERSION" ]; then
+              echo "$PACKAGE@$VERSION is visible on npm"
+              exit 0
+            fi
+            echo "Waiting for $PACKAGE@$VERSION (attempt ${attempt}/30)"
+            sleep 10
+          done
+          echo "::error::Timed out waiting for $PACKAGE@$VERSION to appear on npm" >&2
+          exit 1
+
+      - name: Install from the registry and play a SID
+        env:
+          VERSION: ${{ needs.preflight.outputs.version }}
+        run: |
+          set -euo pipefail
+          PACKAGE=$(node -p "require('./package.json').name")
+          # Deliberately the registry copy, not the local build: this is the
+          # only step that proves what users will actually download works.
+          node scripts/published-smoke.mjs --package "$PACKAGE" --version "$VERSION"
+
+  promote:
+    name: Tag and publish the GitHub release
+    needs: [preflight, qualify, publish, smoke]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.preflight.outputs.sha }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: verified-release-${{ needs.preflight.outputs.version }}
+          path: release
+
+      - name: Create the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.preflight.outputs.version }}
+          SHA: ${{ needs.preflight.outputs.sha }}
+        run: |
+          set -euo pipefail
+          UPSTREAM=$(node -p "require('./upstream.json').libsidplayfp.ref")
+          RESIDFP=$(node -p "require('./upstream.json').libresidfp.ref")
+          # A heredoc, not an inline --notes string: a blank line inside a quoted
+          # multi-line argument puts the continuation at column 0, which ends the
+          # surrounding YAML block scalar.
+          cat > /tmp/release-notes.md <<NOTES
+          Contains libsidplayfp \`${UPSTREAM}\` and libresidfp \`${RESIDFP}\`.
+
+          Published to npm, then reinstalled from the registry and made to play a SID before this release was created.
+
+          The \`-complete-source.tar.gz\` asset is the complete corresponding source for the WebAssembly binaries, as required by the GPL: both upstream projects at their pinned commits, the modifications applied to them, the bindings, and the build. The same archive also ships inside the npm package at \`dist/complete-source.tar.gz\`.
+          NOTES
+          gh release create "v$VERSION" \
+            release/*.tgz \
+            "release/libsidplayfp-wasm-${VERSION}.tar.gz" \
+            "release/libsidplayfp-wasm-${VERSION}-complete-source.tar.gz" \
+            release/SHA256SUMS \
+            release/RELEASE-SHA256SUMS \
+            release/sbom.cdx.json \
+            --target "$SHA" \
+            --title "libsidplayfp WASM $VERSION" \
+            --notes-file /tmp/release-notes.md \
+            --generate-notes

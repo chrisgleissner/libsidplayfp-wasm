@@ -1,0 +1,96 @@
+name: Watch libsidplayfp releases
+
+on:
+  schedule:
+    - cron: "17 */6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  propose-update:
+    name: Propose a stable upstream update
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.1
+
+      - name: Read the latest stable upstream release
+        id: upstream
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          RELEASE=$(gh api repos/libsidplayfp/libsidplayfp/releases/latest)
+          TAG=$(node -e 'const release = JSON.parse(process.argv[1]); if (release.draft || release.prerelease) process.exit(2); process.stdout.write(release.tag_name)' "$RELEASE")
+          COMMIT=$(git ls-remote https://github.com/libsidplayfp/libsidplayfp.git "refs/tags/${TAG}" "refs/tags/${TAG}^{}" | awk '/\^\{\}$/ { print $1; found = 1; exit } { fallback = $1 } END { if (!found && fallback) print fallback }')
+          test -n "$COMMIT"
+          node scripts/upstream.mjs status --ref "$TAG" --commit "$COMMIT" >> "$GITHUB_OUTPUT"
+          echo "commit=$COMMIT" >> "$GITHUB_OUTPUT"
+
+      - name: Update immutable pin and package version
+        if: steps.upstream.outputs.update == 'true'
+        env:
+          TAG: ${{ steps.upstream.outputs.candidate_ref }}
+          COMMIT: ${{ steps.upstream.outputs.commit }}
+        run: |
+          set -euo pipefail
+          PACKAGE=$(node -p "require('./package.json').name")
+          # Published versions decide whether the mirror can take upstream's
+          # number verbatim or has to move past one a downstream fix consumed.
+          # Assign, then replace on failure. `A=$(cmd) || A=fallback` overwrites,
+          # whereas `A=$(cmd || echo fallback)` concatenates npm's error object
+          # with the fallback and yields invalid JSON.
+          PUBLISHED=$(npm view "$PACKAGE" versions --json --registry=https://registry.npmjs.org 2>/dev/null) || PUBLISHED='[]'
+          node scripts/upstream.mjs update --ref "$TAG" --commit "$COMMIT" --published "$PUBLISHED"
+          node scripts/upstream.mjs verify --published "$PUBLISHED"
+          bun install --frozen-lockfile
+          git diff --check
+
+      - name: Create the verified-update pull request
+        if: steps.upstream.outputs.update == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.upstream.outputs.candidate_ref }}
+          COMMIT: ${{ steps.upstream.outputs.commit }}
+        run: |
+          set -euo pipefail
+          BRANCH="automation/libsidplayfp-${TAG}"
+          VERSION=$(node -p "require('./package.json').version")
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -B "$BRANCH"
+          git add upstream.json package.json bun.lock src/upstream-versions.ts
+          git commit -m "chore: update libsidplayfp to ${TAG}"
+          git push --force-with-lease origin "$BRANCH"
+          if gh pr view "$BRANCH" --json url --jq .url >/dev/null 2>&1; then
+            exit 0
+          fi
+          if [ "$VERSION" = "${TAG#v}" ]; then
+            VERSION_NOTE="This release mirrors upstream exactly: \`${VERSION}\`."
+          else
+            VERSION_NOTE="Upstream \`${TAG#v}\` is already taken by a downstream fix, so this release takes the next free patch, \`${VERSION}\`. See \"Versioning\" in the README."
+          fi
+          cat > /tmp/pr-body.md <<BODY
+          Automated stable-release update pinned to \`${COMMIT}\`.
+
+          ${VERSION_NOTE}
+
+          Verify rebuilds both engines and checks fast native parity. Merging this
+          PR starts the release qualification. Nothing is published before that
+          gate passes, and the git tag and GitHub release are created only after
+          the published package has been reinstalled from the registry and
+          smoke-tested.
+          BODY
+          gh pr create \
+            --base main \
+            --head "$BRANCH" \
+            --title "chore: update libsidplayfp to ${TAG}" \
+            --body-file /tmp/pr-body.md
