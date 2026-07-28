@@ -16,7 +16,7 @@ runs:
       with:
         bun-version: 1.3.1
 
-    - uses: actions/setup-node@v4
+    - uses: actions/setup-node@v7
       with:
         node-version: 24
 
@@ -29,7 +29,7 @@ runs:
           autoconf automake build-essential libtool p7zip-full pkg-config xa65
 
     - name: Restore immutable source and real-playback caches
-      uses: actions/cache@v4
+      uses: actions/cache@v6
       with:
         path: |
           .cache/upstream

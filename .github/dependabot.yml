@@ -16,10 +16,16 @@ version: 2
 # entry additionally groups same-day advisories within its own ecosystem into
 # one PR instead of one PR per advisory.
 #
-# Major upgrades are deliberately opt-in. In this repository they are rarely
-# routine: the emscripten image decides the bytes of every published artifact,
-# so a major toolchain bump needs its own PR with parity numbers and artifact
-# sizes reviewed alongside it.
+# Major upgrades are deliberately opt-in for npm and Docker. In this repository
+# they are rarely routine: the emscripten image decides the bytes of every
+# published artifact, so a major toolchain bump needs its own PR with parity
+# numbers and artifact sizes reviewed alongside it.
+#
+# GitHub Actions are the exception and DO take majors. An action's major version
+# is how its JavaScript runtime is bumped — node16 to node20 to node24 — so
+# pinning to a major means being left on a runtime GitHub is retiring. Those
+# bumps carry no artifact risk and are proved by the same full Verify run as
+# everything else.
 #
 # Not covered here, by design: libsidplayfp and libresidfp. Dependabot cannot
 # read `upstream.json`, and those pins carry their own release qualification via
@@ -56,6 +62,7 @@ updates:
         update-types:
           - version-update:semver-major
 
+  # Majors included, unlike the ecosystems either side of this one: see above.
   - package-ecosystem: github-actions
     directory: /
     multi-ecosystem-group: weekly-rollup
@@ -66,10 +73,6 @@ updates:
         applies-to: security-updates
         patterns:
           - "*"
-    ignore:
-      - dependency-name: "*"
-        update-types:
-          - version-update:semver-major
 
   # The emscripten toolchain image. This is the compiler, so a bump changes the
   # WebAssembly that ships; native differential parity is what decides whether
