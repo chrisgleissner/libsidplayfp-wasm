@@ -1,5 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import { execFileSync } from "node:child_process";
+import { readFileSync } from "node:fs";
 import path from "node:path";
 
 /**
@@ -9,6 +10,10 @@ import path from "node:path";
 
 const ROOT = path.resolve(import.meta.dirname, "..");
 const SCRIPT = path.join(ROOT, "scripts", "upstream.mjs");
+
+function currentVersion(): string {
+  return JSON.parse(readFileSync(path.join(ROOT, "package.json"), "utf8")).version;
+}
 
 function run(args: string[]): { code: number; out: string; err: string } {
   try {
@@ -64,13 +69,7 @@ describe("registry lookup", () => {
   });
 
   it("refuses to republish a version already on the registry", () => {
-    const version = JSON.parse(
-      execFileSync("node", ["-p", "JSON.stringify(require('./package.json').version)"], {
-        cwd: ROOT,
-        encoding: "utf8",
-      }),
-    );
-    const { code, err } = run(["verify", "--published", JSON.stringify([version])]);
+    const { code, err } = run(["verify", "--published", JSON.stringify([currentVersion()])]);
     expect(code).not.toBe(0);
     expect(err).toContain("already published");
   });
@@ -78,10 +77,13 @@ describe("registry lookup", () => {
 
 describe("version planning", () => {
   it("takes a minor for an upstream bump while the 0.x line is independent", () => {
+    // Derived, not hard-coded: a literal would go red the first time the
+    // package version moves, which is exactly when this rule matters most.
+    const [major, minor] = currentVersion().split(".").map(Number);
     const { code, out } = run(["plan", "--ref", "v3.0.3"]);
     expect(code).toBe(0);
     expect(out).toContain("mode=independent");
-    expect(out).toContain("version=0.2.0");
+    expect(out).toContain(`version=${major}.${minor + 1}.0`);
     expect(out).toContain("mirrors_upstream=false");
   });
 

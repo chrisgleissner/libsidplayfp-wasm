@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from "bun:test";
+import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 
 import {
   DEFAULT_SID_ENGINE,
@@ -14,6 +14,24 @@ import {
  */
 
 const saved = { ...process.env };
+
+/**
+ * Every variable the loader reads.
+ *
+ * These are a documented way for a host to pick an engine or relocate the
+ * binary, so a developer may well have one set. Each test starts from none of
+ * them and sets only what it is about.
+ */
+const LOADER_ENV = [
+  "LIBSIDPLAYFP_WASM_ENGINE",
+  "SIDFLOW_SID_ENGINE",
+  "LIBSIDPLAYFP_WASM_PATH",
+  "SIDFLOW_LIBSIDPLAYFP_WASM_PATH",
+] as const;
+
+beforeEach(() => {
+  for (const key of LOADER_ENV) delete process.env[key];
+});
 
 afterEach(() => {
   for (const key of Object.keys(process.env)) {

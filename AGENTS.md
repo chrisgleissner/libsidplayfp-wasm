@@ -67,7 +67,7 @@ WebAssembly distribution of libsidplayfp.
 - The release workflow is the only publisher, and its stages gate one another:
   preflight (the commit's own `Verify` run must be green, and the version must
   be valid and unpublished), qualify (both engines rebuilt, full unit suite
-  three times, 99% coverage gate, browser tests, clean-package check, complete
+  three times, 100% coverage gate, browser tests, clean-package check, complete
   HVSC #85 edge sweep, native parity, and a smoke test of the exact tarball),
   publish (npm via OIDC trusted publishing — no token — and GitHub Packages),
   smoke (reinstall that version from the registry and play a SID), promote (the
@@ -103,7 +103,7 @@ run fetches and checksum-verifies HVSC #85 and the VICE ROM cache. Reuse the
 cache; do not add fixtures by downloading individual tunes from arbitrary
 servers.
 
-`test:coverage` writes LCOV and fails below 99% production TypeScript line
+`test:coverage` writes LCOV and fails below 100% production TypeScript line
 coverage. `test:browser` exercises Chromium, Android-sized Chromium, Firefox,
 and WebKit, including concurrent module-worker playback. `test:soak` performs
 the 30-minute local virtual-playback memory qualification; the scheduled weekly
