@@ -93,7 +93,10 @@ jobs:
         run: |
           set -euo pipefail
           PACKAGE=$(node -p "require('./package.json').name")
-          PUBLISHED=$(npm view "$PACKAGE" versions --json --registry=https://registry.npmjs.org 2>/dev/null || echo '[]')
+          # Assign, then replace on failure. `A=$(cmd) || A=fallback` overwrites,
+          # whereas `A=$(cmd || echo fallback)` concatenates npm's error object
+          # with the fallback and yields invalid JSON.
+          PUBLISHED=$(npm view "$PACKAGE" versions --json --registry=https://registry.npmjs.org 2>/dev/null) || PUBLISHED='[]'
           # `verify` enforces the versioning rules in README.md: a stable
           # version, never below the pinned upstream release, generated
           # constants in step, and not already published.

@@ -121,7 +121,25 @@ function readOption(name) {
 function readPublished() {
   const raw = readOption("--published");
   if (!raw) return [];
-  const parsed = JSON.parse(raw);
+
+  let parsed;
+  try {
+    parsed = JSON.parse(raw);
+  } catch (error) {
+    throw new Error(
+      `--published is not JSON: ${error instanceof Error ? error.message : error}`,
+    );
+  }
+
+  // `npm view <missing> --json` prints an error object on stdout and exits 1,
+  // which for a package that has never been published means exactly "nothing".
+  // Any other error is a registry problem the caller must not mistake for an
+  // empty registry, because that would let an already-published version through.
+  if (parsed && typeof parsed === "object" && !Array.isArray(parsed) && parsed.error) {
+    if (parsed.error.code === "E404") return [];
+    throw new Error(`registry lookup failed: ${parsed.error.summary ?? parsed.error.code}`);
+  }
+
   const list = Array.isArray(parsed) ? parsed : [parsed];
   return list.filter((entry) => typeof entry === "string" && STABLE_REF.test(entry));
 }

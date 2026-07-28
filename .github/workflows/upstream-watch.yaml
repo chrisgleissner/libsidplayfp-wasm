@@ -45,7 +45,10 @@ jobs:
           PACKAGE=$(node -p "require('./package.json').name")
           # Published versions decide whether the mirror can take upstream's
           # number verbatim or has to move past one a downstream fix consumed.
-          PUBLISHED=$(npm view "$PACKAGE" versions --json --registry=https://registry.npmjs.org 2>/dev/null || echo '[]')
+          # Assign, then replace on failure. `A=$(cmd) || A=fallback` overwrites,
+          # whereas `A=$(cmd || echo fallback)` concatenates npm's error object
+          # with the fallback and yields invalid JSON.
+          PUBLISHED=$(npm view "$PACKAGE" versions --json --registry=https://registry.npmjs.org 2>/dev/null) || PUBLISHED='[]'
           node scripts/upstream.mjs update --ref "$TAG" --commit "$COMMIT" --published "$PUBLISHED"
           node scripts/upstream.mjs verify --published "$PUBLISHED"
           bun install --frozen-lockfile
