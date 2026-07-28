@@ -51,7 +51,7 @@ Call `dispose()` when finished. It deletes the underlying C++ object, which is
 not garbage collected, and drops the reference to the WebAssembly heap so it
 becomes collectable.
 
-## 🎛️ Shaping the sound
+## 〰️ Shaping the sound
 
 A SID sounds different depending on the machine it is played back on. All of
 libsidplayfp's emulation settings are available:
