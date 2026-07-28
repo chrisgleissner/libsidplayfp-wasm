@@ -357,15 +357,22 @@ jobs:
           set -euo pipefail
           UPSTREAM=$(node -p "require('./upstream.json').libsidplayfp.ref")
           RESIDFP=$(node -p "require('./upstream.json').libresidfp.ref")
+          # Release notes say which engines this is and what changed in it.
+          # Nothing about how the release was made: that is the same every time,
+          # so repeating it in every set of notes buries the part that differs.
+          # Licensing lives in LICENSE, THIRD-PARTY-NOTICES.md and the README —
+          # the source archive is a named asset and does not need re-explaining
+          # on each tag. `--generate-notes` appends the commit list below.
+          #
           # A heredoc, not an inline --notes string: a blank line inside a quoted
           # multi-line argument puts the continuation at column 0, which ends the
           # surrounding YAML block scalar.
           cat > /tmp/release-notes.md <<NOTES
-          Contains libsidplayfp \`${UPSTREAM}\` and libresidfp \`${RESIDFP}\`.
+          libsidplayfp \`${UPSTREAM}\` · libresidfp \`${RESIDFP}\`
 
-          Published to npm, then reinstalled from the registry and made to play a SID before this release was created.
-
-          The \`-complete-source.tar.gz\` asset is the complete corresponding source for the WebAssembly binaries, as required by the GPL: both upstream projects at their pinned commits, the modifications applied to them, the bindings, and the build. The same archive also ships inside the npm package at \`dist/complete-source.tar.gz\`.
+          \`\`\`bash
+          npm install libsidplayfp-wasm@${VERSION}
+          \`\`\`
           NOTES
           gh release create "v$VERSION" \
             release/*.tgz \

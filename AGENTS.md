@@ -118,6 +118,11 @@ WebAssembly distribution of libsidplayfp.
   bytes that had not moved. What `qualify` keeps is the part `Verify` cannot
   do — proving the artifact itself. If you add a check here, first ask whether
   it belongs in `Verify` instead.
+- Release notes state the upstream engine versions and what changed in that
+  release, and nothing about how the release was produced. The pipeline is
+  identical every time, so describing it on each tag buries the one part that
+  differs. Licensing belongs in `LICENSE`, `THIRD-PARTY-NOTICES.md` and the
+  README, not restated per release.
 - npm's OIDC credential authenticates `npm publish` and nothing else, so a
   `next` -> `latest` staging step would need a long-lived token. Do not add one:
   the guard is smoke-testing the identical bytes before publish and the registry
