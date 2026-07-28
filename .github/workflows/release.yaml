@@ -239,7 +239,24 @@ jobs:
             echo "$PACKAGE@$VERSION is already on npm; versions are immutable, so nothing to do."
             exit 0
           fi
-          npm publish "$TARBALL" --access public
+          if npm publish "$TARBALL" --access public; then
+            exit 0
+          fi
+          # npm cannot configure a trusted publisher for a package that does not
+          # exist yet, so the very first publish of a new name needs a one-off
+          # human step. Say which one instead of leaving a 404 to interpret.
+          cat >&2 <<MESSAGE
+          ::error::npm publish failed. If this is the first release of $PACKAGE, its
+          trusted publisher does not exist yet and OIDC has nothing to exchange
+          against. Configure it once, from a machine logged in to npm:
+
+            npm trust github $PACKAGE \
+              --repo ${GITHUB_REPOSITORY} \
+              --file release.yaml
+
+          then re-run this workflow. No repository secret is involved either way.
+          MESSAGE
+          exit 1
 
       - name: Publish to GitHub Packages
         env:

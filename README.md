@@ -200,8 +200,8 @@ The release pipeline is strictly ordered and each stage gates the next:
    the 95% coverage gate, browser tests across Chromium (desktop and Pixel 5),
    Firefox, and WebKit, the clean-package check, the complete HVSC #85 edge
    sweep, and native differential parity for both engines.
-3. **Publish** — npm via GitHub OIDC trusted publishing (no token is stored or
-   configured) and GitHub Packages.
+3. **Publish** — npm via GitHub OIDC trusted publishing (no repository secret is
+   involved) and GitHub Packages.
 4. **Smoke** — install that version **from the registry** into an empty directory
    and play a SID through both engines and both entry points.
 5. **Promote** — the git tag and GitHub release, only once the registry copy has
@@ -212,6 +212,21 @@ test the exact bytes before they are published and the registry copy immediately
 after. `latest` is not held back to do it: npm's OIDC credential authenticates
 `npm publish` alone, so staging through a `next` dist-tag would reintroduce the
 long-lived token this flow exists to avoid.
+
+### One-time npm setup
+
+npm cannot configure a trusted publisher for a package that does not exist yet,
+so the very first release of a new package name needs one human step, run once
+from a machine logged in to npm:
+
+```bash
+npm trust github @chrisgleissner/libsidplayfp-wasm \
+  --repo chrisgleissner/libsidplayfp-wasm \
+  --file release.yaml
+```
+
+After that every release authenticates through GitHub's OIDC token. No npm
+credential is ever stored in the repository.
 
 Production TypeScript line coverage is required to remain at or above 95%
 locally, in GitHub Actions, and in Codecov. The weekly Actions soak renders two
