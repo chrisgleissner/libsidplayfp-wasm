@@ -8,8 +8,8 @@
 
 Play Commodore 64 SID music in the browser, Node.js, or Bun.
 
-This is [libsidplayfp](https://github.com/libsidplayfp/libsidplayfp) — the
-reference C64 SID player — compiled to WebAssembly, with TypeScript types and a
+This is [libsidplayfp](https://github.com/libsidplayfp/libsidplayfp) - the
+reference C64 SID player - compiled to WebAssembly, with TypeScript types and a
 `SidAudioEngine` wrapper. Both SID emulations ship in every release, and each
 build is compared sample-for-sample against a native build of the same source
 before it is published.
@@ -60,7 +60,7 @@ libsidplayfp's emulation settings are available:
 await engine.setEmulationConfig({
   c64Model: "NTSC",      // PAL | NTSC | OLD_NTSC | DREAN | PAL_M
   forceC64Model: true,   // ignore what the tune's header claims
-  sidModel: "MOS8580",   // MOS6581 | MOS8580 — audibly very different chips
+  sidModel: "MOS8580",   // MOS6581 | MOS8580 - audibly very different chips
   forceSidModel: true,
   digiBoost: true,       // improves 8580 digi playback
 });
@@ -152,12 +152,12 @@ The binaries use [WebAssembly exception
 handling](https://webassembly.org/features/), so they need a runtime that
 supports it. Every browser Playwright ships is verified on each commit, and the
 packed package is installed and made to play a SID under **Node 20, 22 and 24**
-on every commit. Bun works too — the test suite runs on it.
+on every commit. Bun works too - the test suite runs on it.
 
 ## C64 ROMs
 
-Tunes that run as real C64 programs — RSID, and anything driven by interrupts or
-BASIC — need the KERNAL, BASIC, and CHARGEN ROMs. Without them libsidplayfp
+Tunes that run as real C64 programs - RSID, and anything driven by interrupts or
+BASIC - need the KERNAL, BASIC, and CHARGEN ROMs. Without them libsidplayfp
 initialises the tune but never advances it, so it renders as silence or a single
 held frame.
 
@@ -182,7 +182,7 @@ While this distribution settles, the package keeps its own `0.x` line: an
 upstream engine bump takes a minor, a fix of our own takes a patch.
 
 It will then switch to mirroring upstream, where a release that only advances
-libsidplayfp carries upstream's exact version — `v3.0.2` publishes as `3.0.2`.
+libsidplayfp carries upstream's exact version - `v3.0.2` publishes as `3.0.2`.
 Because semver has no version between `3.0.2` and `3.0.3`, a fix to *this*
 package takes the next free patch and keeps the same upstream pin, and a mirror
 steps over any number already used:
@@ -192,7 +192,7 @@ steps over any number already used:
 | `3.0.2` | `v3.0.2` | exact mirror |
 | `3.0.3` | `v3.0.2` | a fix here; upstream unchanged |
 | `3.0.4` | `v3.0.3` | mirror, one ahead because `3.0.3` was used |
-| `3.1.0` | `v3.1.0` | exact again — drift closes at every upstream minor |
+| `3.1.0` | `v3.1.0` | exact again - drift closes at every upstream minor |
 
 The exported constants are always exact, whichever scheme is in force.
 
@@ -213,7 +213,7 @@ listening.
   floor of −81 to −90 dBFS, which is below the SID's own noise floor and comes
   from a 1-ULP disagreement between C libraries in the filter-model tables.
 - **Browsers**, via Playwright: Chromium and Firefox on the desktop, Chromium
-  emulating a Pixel 5, and WebKit emulating an iPhone 13 — 7 tests each, both
+  emulating a Pixel 5, and WebKit emulating an iPhone 13 - 7 tests each, both
   engines, including playback from module workers and two workers rendering
   concurrently.
 - **Determinism**: the same tune renders identically on repeat and at any chunk
@@ -226,9 +226,9 @@ listening.
 - The unit suite three consecutive times.
 - An **edge-case sweep**: 1,678 tunes selected from HVSC #85's 61,157, loaded
   and rendered through both engines, then compared against native builds. The
-  selection takes *every* file in the categories most likely to break a player —
+  selection takes *every* file in the categories most likely to break a player -
   all 364 multi-SID tunes, all 589 BASIC-driven RSIDs, all 76 with 32 or more
-  subtunes — plus 400 each sampled evenly across the 3,924 RSID and 4,035
+  subtunes - plus 400 each sampled evenly across the 3,924 RSID and 4,035
   zero-play-address files. Each is rendered for a fraction of a second, so this
   is a broad load-and-progress check rather than full playback of each tune.
 - Both engines rebuilt from immutable upstream commits. The build aborts if an
@@ -253,14 +253,14 @@ incorporate MIT-licensed components (Cra3z's `hashlib`, which provides the MD5
 behind `getTuneMd5()`; musl; the Emscripten runtime) and LLVM runtime libraries
 under Apache-2.0 with LLVM Exceptions.
 
-* [`LICENSE`](LICENSE) — the GPL-2.0 text.
-* [`THIRD-PARTY-NOTICES.md`](THIRD-PARTY-NOTICES.md) — every component compiled
+* [`LICENSE`](LICENSE) - the GPL-2.0 text.
+* [`THIRD-PARTY-NOTICES.md`](THIRD-PARTY-NOTICES.md) - every component compiled
   into the binaries, with its licence and copyright.
-* **`dist/complete-source.tar.gz`, inside this package** — the complete
+* **`dist/complete-source.tar.gz`, inside this package** - the complete
   corresponding source for the binaries: both upstream projects at their exact
   pinned commits, the modifications applied to them, the bindings, and the
   build. The same archive is attached to every GitHub release.
-* [`MODIFICATIONS.md`](MODIFICATIONS.md) — what this project changes in
+* [`MODIFICATIONS.md`](MODIFICATIONS.md) - what this project changes in
   libsidplayfp and libresidfp before compiling them. Nothing there alters the
   emulation; the audio path is upstream's own.
 
@@ -269,7 +269,7 @@ beside each artifact record the exact commits a given binary was built from.
 
 **This is an independent redistribution.** It is not an official libsidplayfp,
 libresidfp, or SIDLite product, and it is not endorsed by or affiliated with
-their authors. Report problems here, not upstream — unless a native sidplayfp
+their authors. Report problems here, not upstream - unless a native sidplayfp
 reproduces the same behaviour, in which case upstream is the right place.
 
 No Commodore 64 ROMs, SID tunes, or music corpora are distributed. See
