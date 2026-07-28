@@ -4,15 +4,31 @@ import createLibsidplayfp, {
     type SidPlayerContextOptions
 } from "../dist/libsidplayfp.js";
 
-// Only check environment variables in Node.js/server contexts, not in browsers/workers
-const wasmPathOverride = (typeof process !== "undefined" && typeof process.env === "object")
-    ? (process.env.LIBSIDPLAYFP_WASM_PATH ?? process.env.SIDFLOW_LIBSIDPLAYFP_WASM_PATH)?.trim() || undefined
-    : undefined;
+/**
+ * Read a configuration variable, preferring the current name over the SIDFlow
+ * alias this package kept for existing callers.
+ *
+ * Read on demand rather than captured at module load, so a host that configures
+ * its environment after importing the loader is still honoured. Browsers and
+ * workers have no `process`, which is the case the guard exists for.
+ */
+function readEnv(name: string, alias: string): string | undefined {
+    if (typeof process === "undefined" || typeof process.env !== "object") {
+        return undefined;
+    }
+    return (process.env[name] ?? process.env[alias])?.trim() || undefined;
+}
 
-// Detect if we're in a server-like environment (Node.js) vs browser/worker
-const isServerLikeEnvironment = typeof globalThis === "object"
-    ? (typeof (globalThis as { window?: unknown }).window === "undefined" && typeof process !== "undefined")
-    : false;
+/** Node-like: no DOM window, and a process to read the environment from. */
+function isServerLikeEnvironment(): boolean {
+    return typeof (globalThis as { window?: unknown }).window === "undefined"
+        && typeof process !== "undefined";
+}
+
+/** Explicit path to one specific `.wasm`, for hosts that relocate it. */
+function wasmPathOverride(): string | undefined {
+    return readEnv("LIBSIDPLAYFP_WASM_PATH", "SIDFLOW_LIBSIDPLAYFP_WASM_PATH");
+}
 
 /**
  * Which SID emulation to load. Both are built from the same bindings and
@@ -49,10 +65,7 @@ const artifactBaseUrl = new URL("../dist/", import.meta.url);
 const sidliteArtifactBaseUrl = new URL("../dist/sidlite/", import.meta.url);
 
 function envEngine(): SidEngine | undefined {
-    if (typeof process === "undefined" || typeof process.env !== "object") {
-        return undefined;
-    }
-    const raw = (process.env.LIBSIDPLAYFP_WASM_ENGINE ?? process.env.SIDFLOW_SID_ENGINE)?.trim().toLowerCase();
+    const raw = readEnv("LIBSIDPLAYFP_WASM_ENGINE", "SIDFLOW_SID_ENGINE")?.toLowerCase();
     return raw === "residfp" || raw === "sidlite" ? raw : undefined;
 }
 
@@ -60,7 +73,18 @@ export function resolveSidEngine(engine?: SidEngine): SidEngine {
     return engine ?? envEngine() ?? DEFAULT_SID_ENGINE;
 }
 
-const cachedDefaultModulePromises = new Map<SidEngine, Promise<LibsidplayfpWasmModule>>();
+/**
+ * Memoised default modules, keyed by what actually determines the artifact:
+ * the engine and the binary path override.
+ *
+ * The override is read on demand, so a host that changes it must get a module
+ * built against the new path rather than whatever was cached under the old one.
+ */
+const cachedDefaultModulePromises = new Map<string, Promise<LibsidplayfpWasmModule>>();
+
+function defaultModuleCacheKey(engine: SidEngine): string {
+    return `${engine}\u0000${(isServerLikeEnvironment() ? wasmPathOverride() : undefined) ?? ""}`;
+}
 
 async function createModulePromise(
     options: LoadLibsidplayfpOptions
@@ -71,10 +95,8 @@ async function createModulePromise(
     const locate = options.locateFile ?? ((asset: string) => {
         // The path override names one specific binary, so it can only apply to
         // the engine the caller actually asked for.
-        if (isServerLikeEnvironment && wasmPathOverride) {
-            return wasmPathOverride;
-        }
-        return new URL(asset, baseUrl).href;
+        const override = isServerLikeEnvironment() ? wasmPathOverride() : undefined;
+        return override ?? new URL(asset, baseUrl).href;
     });
 
     // reSIDfp keeps the static import so bundlers can see it. SIDLite is loaded
@@ -100,14 +122,16 @@ export async function loadLibsidplayfp(
     options: LoadLibsidplayfpOptions = {}
 ): Promise<LibsidplayfpWasmModule> {
     if (isCacheableDefaultLoad(options)) {
-        const engine = resolveSidEngine(options.engine);
-        let cached = cachedDefaultModulePromises.get(engine);
+        const key = defaultModuleCacheKey(resolveSidEngine(options.engine));
+        let cached = cachedDefaultModulePromises.get(key);
         if (!cached) {
+            // Evict on failure, or every later caller inherits the rejection and
+            // a transient problem becomes permanent for the process.
             cached = createModulePromise(options).catch((error) => {
-                cachedDefaultModulePromises.delete(engine);
+                cachedDefaultModulePromises.delete(key);
                 throw error;
             });
-            cachedDefaultModulePromises.set(engine, cached);
+            cachedDefaultModulePromises.set(key, cached);
         }
         return await cached;
     }

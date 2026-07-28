@@ -1,0 +1,185 @@
+name: Bug report
+description: Report a crash, an API defect, or a build or bundler problem
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for taking the time to report a bug.
+
+        If the problem is that a tune **sounds wrong** rather than that something fails,
+        use the "Audio fidelity report" template instead — it asks for the comparisons
+        needed to tell an emulation difference from a defect.
+
+        Please fill in every required section. Incomplete reports may be closed as
+        insufficient for diagnosis.
+
+  - type: markdown
+    attributes:
+      value: |
+        ## 1. Versions
+
+        Paste the output of this snippet rather than typing versions by hand — the package
+        version and the libsidplayfp version inside it are not always the same number.
+
+        ```ts
+        import { PACKAGE_VERSION, LIBSIDPLAYFP_VERSION, LIBRESIDFP_VERSION, UPSTREAM_COMMITS }
+          from "@chrisgleissner/libsidplayfp-wasm";
+        console.log({ PACKAGE_VERSION, LIBSIDPLAYFP_VERSION, LIBRESIDFP_VERSION, UPSTREAM_COMMITS });
+        ```
+
+  - type: textarea
+    id: versions
+    attributes:
+      label: Package and upstream versions
+      description: Output of the snippet above, or the values if you cannot run it.
+      placeholder: |
+        PACKAGE_VERSION:
+        LIBSIDPLAYFP_VERSION:
+        LIBRESIDFP_VERSION:
+        Installed from: npm / GitHub Packages / built from source (commit)
+      render: text
+    validations:
+      required: true
+
+  - type: dropdown
+    id: engine
+    attributes:
+      label: Engine
+      description: Which SID emulation was selected when the problem occurred.
+      options:
+        - sidlite (the default)
+        - residfp
+        - both
+        - not sure
+    validations:
+      required: true
+
+  - type: markdown
+    attributes:
+      value: |
+        ## 2. Runtime
+
+  - type: textarea
+    id: runtime
+    attributes:
+      label: Runtime and platform
+      description: Where the code was running when the problem occurred.
+      placeholder: |
+        Runtime and version (e.g. Chrome 141, Firefox 145, Safari 18.2, Node 22.11, Bun 1.3.1):
+        Operating system (e.g. Windows 11 24H2, Ubuntu 24.04, macOS 15.2, Android 15):
+        Desktop or mobile:
+        Bundler, if any (e.g. Vite 6, webpack 5, esbuild, none):
+        Framework, if any (e.g. Next.js 15, SvelteKit, plain <script type="module">):
+    validations:
+      required: true
+
+  - type: dropdown
+    id: context
+    attributes:
+      label: Execution context
+      options:
+        - Main thread
+        - Web Worker / AudioWorklet
+        - Server-side (Node or Bun)
+        - Other
+    validations:
+      required: true
+
+  - type: markdown
+    attributes:
+      value: |
+        ## 3. The tune
+
+        If the problem only happens with a particular SID file, identify it. `getTuneMd5()`
+        returns the HVSC `Songlengths.md5` key, which names the file unambiguously without
+        attaching it.
+
+  - type: textarea
+    id: tune
+    attributes:
+      label: SID file
+      description: Leave blank only if the problem happens with every tune.
+      placeholder: |
+        HVSC path (e.g. MUSICIANS/H/Hubbard_Rob/Commando.sid):
+        getTuneMd5():
+        Subtune (0-based) if not the default:
+        Attached below: yes / no
+    validations:
+      required: false
+
+  - type: dropdown
+    id: roms
+    attributes:
+      label: C64 system ROMs
+      description: >-
+        Many tunes need real KERNAL/BASIC/CHARGEN ROMs to advance at all. `getRomStatus()`
+        reports whether the ones you supplied are actually in effect.
+      options:
+        - Supplied, and getRomStatus() reports active
+        - Supplied, but getRomStatus() reports inactive
+        - Not supplied
+        - Not sure
+    validations:
+      required: true
+
+  - type: markdown
+    attributes:
+      value: |
+        ## 4. Reproduction
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Minimal reproduction
+      description: >-
+        The smallest piece of code that shows the problem, plus what you expected and what
+        happened instead. A link to a runnable repository or sandbox is ideal.
+      placeholder: |
+        ```ts
+        import { SidAudioEngine } from "@chrisgleissner/libsidplayfp-wasm";
+        const engine = new SidAudioEngine({ engine: "sidlite" });
+        // ...
+        ```
+
+        Expected result:
+        Actual result:
+        Reproduces every time / intermittently (roughly how often):
+      render: text
+    validations:
+      required: true
+
+  - type: textarea
+    id: errors
+    attributes:
+      label: Errors and console output
+      description: >-
+        Full text of any exception, including the stack trace, plus anything the module logged.
+        A screenshot of a console is much harder to work with than the text.
+      placeholder: "Paste the error and any surrounding output here."
+      render: text
+    validations:
+      required: false
+
+  - type: markdown
+    attributes:
+      value: |
+        ## 5. Narrowing it down
+
+        Both engines are built from the same source and differ only in the emulation, so
+        whether a problem follows the engine is usually the fastest thing to know.
+
+  - type: textarea
+    id: narrowing
+    attributes:
+      label: What you have already tried
+      description: Anything you can answer here saves a round trip.
+      placeholder: |
+        Happens with the other engine as well:              yes / no / not tried
+        Happens with a different SID file:                  yes / no / not tried
+        Happens with a previous version of this package:    yes / no / not tried  (which version?)
+        Happens in a different browser or runtime:          yes / no / not tried
+        A native sidplayfp behaves the same way:            yes / no / not tried
+        Anything else you observed:
+    validations:
+      required: true

@@ -1,0 +1,192 @@
+name: Audio fidelity report
+description: A tune plays, but sounds wrong, silent, distorted, or different from another player
+labels: ["bug", "audio"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this template when playback *works* but does not sound right.
+
+        Two things are worth checking first, because they explain most reports:
+
+        - **Silence or a single held note** almost always means the C64 system ROMs are
+          missing. Tunes driven by interrupts or BASIC — most RSID files — initialise
+          without them but never advance. `getRomStatus()` tells you whether the ROMs you
+          supplied are actually in effect.
+        - **A different-but-plausible sound** may be a real chip difference rather than a
+          defect. The 6581 and 8580 sound very different, and a tune written for one and
+          played on the other is not wrong, just not what you expected. `getTuneInfo()`
+          reports what the file asks for; `setEmulationConfig({ sidModel, forceSidModel })`
+          overrides it.
+
+  - type: markdown
+    attributes:
+      value: |
+        ## 1. Versions and engine
+
+  - type: textarea
+    id: versions
+    attributes:
+      label: Package and upstream versions
+      description: |
+        ```ts
+        import { PACKAGE_VERSION, LIBSIDPLAYFP_VERSION, LIBRESIDFP_VERSION }
+          from "@chrisgleissner/libsidplayfp-wasm";
+        console.log({ PACKAGE_VERSION, LIBSIDPLAYFP_VERSION, LIBRESIDFP_VERSION });
+        ```
+      placeholder: |
+        PACKAGE_VERSION:
+        LIBSIDPLAYFP_VERSION:
+        LIBRESIDFP_VERSION:
+      render: text
+    validations:
+      required: true
+
+  - type: dropdown
+    id: engine
+    attributes:
+      label: Engine used
+      options:
+        - sidlite (the default)
+        - residfp
+        - both sound wrong
+    validations:
+      required: true
+
+  - type: markdown
+    attributes:
+      value: |
+        ## 2. The tune
+
+  - type: textarea
+    id: tune
+    attributes:
+      label: SID file and subtune
+      description: >-
+        `getTuneMd5()` returns the HVSC `Songlengths.md5` key, which identifies the exact
+        file. Please also paste `getTuneInfo()`, which reports the chip count, chip models,
+        clock, and format the file declares.
+      placeholder: |
+        HVSC path (e.g. MUSICIANS/H/Hubbard_Rob/Commando.sid):
+        getTuneMd5():
+        Subtune (0-based):
+        getTuneInfo():
+      render: text
+    validations:
+      required: true
+
+  - type: dropdown
+    id: roms
+    attributes:
+      label: getRomStatus()
+      options:
+        - "requested: true, active: true"
+        - "requested: true, active: false"
+        - "requested: false — no ROMs supplied"
+        - Not sure
+    validations:
+      required: true
+
+  - type: markdown
+    attributes:
+      value: |
+        ## 3. What it sounds like
+
+  - type: dropdown
+    id: symptom
+    attributes:
+      label: Symptom
+      options:
+        - Silence
+        - A single held note or frame, never progressing
+        - Right notes, wrong timbre or filter
+        - Wrong tempo or pitch
+        - Clicks, crackles, or dropouts
+        - Distortion or clipping
+        - One voice or one chip missing
+        - Stops early
+        - Something else
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: What you hear, when it starts, and how it differs from what you expected.
+      placeholder: |
+        What you hear:
+        Where in the tune it happens (e.g. from the start, after ~20 s, only on subtune 3):
+        What you expected instead:
+    validations:
+      required: true
+
+  - type: markdown
+    attributes:
+      value: |
+        ## 4. Comparison
+
+        This is the most useful section. Every release is verified by comparing both engines
+        against a *native* build of the same libsidplayfp source, so knowing whether another
+        player agrees tells us immediately whether the defect is in this package, in
+        libsidplayfp itself, or is an expected emulation difference.
+
+  - type: textarea
+    id: comparison
+    attributes:
+      label: How other players behave with the same file and subtune
+      placeholder: |
+        The other engine here (sidlite <-> residfp):    same / different / not tried
+        Native sidplayfp or VICE:                      same / different / not tried
+        Another player (name it, e.g. DeepSID, SIDPlay):same / different / not tried
+        A previous version of this package:            same / different / not tried  (which?)
+    validations:
+      required: true
+
+  - type: textarea
+    id: audio
+    attributes:
+      label: Audio evidence
+      description: >-
+        Optional but decisive. A short WAV or FLAC of the wrong output, ideally alongside a
+        recording from a player that sounds correct. GitHub accepts these as attachments if
+        you zip them.
+      placeholder: "Drag and drop recordings here, or link to them."
+    validations:
+      required: false
+
+  - type: textarea
+    id: config
+    attributes:
+      label: Emulation configuration
+      description: >-
+        Paste `getEmulationConfig()`, and any `setEmulationConfig` or `setFilterConfig` calls
+        you make. Defaults are fine — say so.
+      placeholder: |
+        getEmulationConfig():
+        setEmulationConfig / setFilterConfig calls, if any:
+        Sample rate and channel count:
+      render: text
+    validations:
+      required: true
+
+  - type: markdown
+    attributes:
+      value: |
+        ## 5. Runtime
+
+  - type: textarea
+    id: runtime
+    attributes:
+      label: Runtime and audio output path
+      description: >-
+        Dropouts and crackling are often produced by the host's audio path rather than by the
+        emulation, so how the PCM reaches the speakers matters.
+      placeholder: |
+        Runtime and version (e.g. Chrome 141, Node 22.11, Bun 1.3.1):
+        Operating system:
+        How the audio is played (e.g. Web Audio AudioBufferSourceNode, AudioWorklet,
+          written to a WAV file, piped to aplay):
+        Buffer or block size you request per call:
+    validations:
+      required: true

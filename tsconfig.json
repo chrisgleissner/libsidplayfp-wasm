@@ -15,7 +15,7 @@
     "composite": true,
     "rootDir": "src",
     "outDir": "dist",
-    "tsBuildInfoFile": "dist/.tsbuildinfo"
+    "tsBuildInfoFile": ".cache/tsbuildinfo"
   },
   "include": ["src/**/*"],
   "exclude": ["examples/**/*", "dist/**/*", "test/**/*"]

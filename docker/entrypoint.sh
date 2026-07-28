@@ -69,11 +69,15 @@ fi
 # libresidfp is cross-compiled either way: SIDLite lives inside libsidplayfp
 # itself, and building both keeps the two artifacts identical apart from the
 # emulation, which is the whole point of being able to compare them.
+# `both` is the release path. The two artifacts differ only in one em++ flag, so
+# compiling libresidfp and libsidplayfp once and linking twice halves the build
+# instead of running this whole script per engine. reSIDfp lands in /dist and
+# SIDLite in /dist/sidlite, matching how they are published.
 SID_ENGINE="${LIBSIDPLAYFP_WASM_ENGINE:-${SIDFLOW_SID_ENGINE:-residfp}}"
 case "${SID_ENGINE}" in
-    residfp | sidlite) ;;
+    residfp | sidlite | both) ;;
     *)
-        echo "LIBSIDPLAYFP_WASM_ENGINE must be residfp or sidlite, got: ${SID_ENGINE}" >&2
+        echo "LIBSIDPLAYFP_WASM_ENGINE must be residfp, sidlite or both, got: ${SID_ENGINE}" >&2
         exit 1
         ;;
 esac
@@ -232,13 +236,8 @@ emmake make -j"$(nproc)"
 
 cp /opt/libsidplayfp-wasm/src/bindings/bindings.cpp "${BUILD_ROOT}/"
 
-ENGINE_FLAGS=""
-if [[ "${SID_ENGINE}" == "sidlite" ]]; then
-    ENGINE_FLAGS="-DSIDFLOW_SID_ENGINE_SIDLITE=1"
-fi
+PACKAGE_VERSION="$(node -p "require('/opt/libsidplayfp-wasm/package.json').version")"
 
-# Release link flags.
-#
 # Emscripten turns assertions off at -O3 for a reason: they cost a check on
 # every runtime call. LIBSIDPLAYFP_WASM_DEBUG=1 selects the diagnostic build
 # without editing this file.
@@ -249,88 +248,126 @@ else
     OPTIMISATION_FLAGS=(-sASSERTIONS=0 -O3)
 fi
 
-em++ bindings.cpp src/.libs/libsidplayfp.a \
-    ${ENGINE_FLAGS} \
-    -I./src \
-    -I./src/sidplayfp \
-    -I./src/sidtune \
-    -I./src/builders/sidlite-builder \
-    -I./src/builders/residfp-builder \
-    $(pkg-config --cflags libresidfp) \
-    $(pkg-config --libs libresidfp) \
-    ${EXTRA_FLAGS} \
-    --bind \
-    ${EH_FLAGS} \
-    "${OPTIMISATION_FLAGS[@]}" \
-    -sMODULARIZE=1 \
-    -sEXPORT_NAME="createLibsidplayfp" \
-    -sEXPORT_ES6=1 \
-    -sALLOW_MEMORY_GROWTH=1 \
-    -sFORCE_FILESYSTEM=1 \
-    -sENVIRONMENT=web,worker,node \
-    -sDEFAULT_LIBRARY_FUNCS_TO_INCLUDE='[$ccall,$cwrap]' \
-    -sEXPORTED_RUNTIME_METHODS='[FS,PATH,cwrap,ccall]' \
-    -o "${OUTPUT_ROOT}/libsidplayfp.js"
+# Link one engine, prove it is the engine it claims to be, prove it renders, and
+# emit the artifact's metadata beside it.
+link_engine() {
+    local engine="$1" output_root="$2"
+    mkdir -p "${output_root}"
+    echo "=== linking ${engine} into ${output_root} ==="
 
-# ---------------------------------------------------------------------------
-# 3. Assert the artifact really is what we think it is.
-#
-# An artifact can end up as SIDLite whenever HAVE_RESIDFP is undefined, and
-# nothing about the build output says so. Check the built binary, not the build
-# inputs, so the claim is about what shipped.
-# ---------------------------------------------------------------------------
-# Materialise the symbol dump first: piping `strings` into `grep -q` makes grep
-# exit on the first match, which SIGPIPEs strings, which under `set -o pipefail`
-# reports the pipeline as failed even though the match succeeded.
-ARTIFACT_SYMBOLS=$(strings "${OUTPUT_ROOT}/libsidplayfp.wasm")
+    local engine_flags=()
+    if [[ "${engine}" == "sidlite" ]]; then
+        engine_flags=(-DSIDFLOW_SID_ENGINE_SIDLITE=1)
+    fi
 
-if [[ "${SID_ENGINE}" == "residfp" ]]; then
-    WANT_BUILDER="WasmReSIDfp"
-    UNWANTED_BUILDER="WasmSIDLite"
-else
-    WANT_BUILDER="WasmSIDLite"
-    UNWANTED_BUILDER="WasmReSIDfp"
-fi
+    em++ bindings.cpp src/.libs/libsidplayfp.a \
+        "${engine_flags[@]}" \
+        -I./src \
+        -I./src/sidplayfp \
+        -I./src/sidtune \
+        -I./src/builders/sidlite-builder \
+        -I./src/builders/residfp-builder \
+        $(pkg-config --cflags libresidfp) \
+        $(pkg-config --libs libresidfp) \
+        ${EXTRA_FLAGS} \
+        --bind \
+        ${EH_FLAGS} \
+        "${OPTIMISATION_FLAGS[@]}" \
+        -sMODULARIZE=1 \
+        -sEXPORT_NAME="createLibsidplayfp" \
+        -sEXPORT_ES6=1 \
+        -sALLOW_MEMORY_GROWTH=1 \
+        -sFORCE_FILESYSTEM=1 \
+        -sENVIRONMENT=web,worker,node \
+        -sDEFAULT_LIBRARY_FUNCS_TO_INCLUDE='[$ccall,$cwrap]' \
+        -sEXPORTED_RUNTIME_METHODS='[FS,PATH,cwrap,ccall]' \
+        -o "${output_root}/libsidplayfp.js"
 
-if ! grep -q "${WANT_BUILDER}" <<<"${ARTIFACT_SYMBOLS}"; then
-    echo "ARTIFACT CHECK FAILED: libsidplayfp.wasm does not contain ${WANT_BUILDER}" >&2
-    exit 1
-fi
-if grep -q "${UNWANTED_BUILDER}" <<<"${ARTIFACT_SYMBOLS}"; then
-    echo "ARTIFACT CHECK FAILED: libsidplayfp.wasm also contains ${UNWANTED_BUILDER}; the artifact is not a pure ${SID_ENGINE} build" >&2
-    exit 1
-fi
-echo "artifact check: ${SID_ENGINE} confirmed (${WANT_BUILDER}), ${UNWANTED_BUILDER} absent"
+    # An artifact can end up as SIDLite whenever HAVE_RESIDFP is undefined, and
+    # nothing about the build output says so. Check the built binary, not the
+    # build inputs, so the claim is about what shipped.
+    #
+    # Materialise the symbol dump first: piping `strings` into `grep -q` makes
+    # grep exit on the first match, which SIGPIPEs strings, which under
+    # `set -o pipefail` reports the pipeline as failed even though it matched.
+    local symbols want unwanted
+    symbols=$(strings "${output_root}/libsidplayfp.wasm")
+    if [[ "${engine}" == "residfp" ]]; then
+        want="WasmReSIDfp"; unwanted="WasmSIDLite"
+    else
+        want="WasmSIDLite"; unwanted="WasmReSIDfp"
+    fi
+    if ! grep -q "${want}" <<<"${symbols}"; then
+        echo "ARTIFACT CHECK FAILED: libsidplayfp.wasm does not contain ${want}" >&2
+        exit 1
+    fi
+    if grep -q "${unwanted}" <<<"${symbols}"; then
+        echo "ARTIFACT CHECK FAILED: libsidplayfp.wasm also contains ${unwanted}; the artifact is not a pure ${engine} build" >&2
+        exit 1
+    fi
+    echo "artifact check: ${engine} confirmed (${want}), ${unwanted} absent"
 
-# ...and that it actually renders. A strings check proves what was linked, not
-# that it works: reSIDfp's filter-table threads threw at load time in exactly
-# this configuration, producing an artifact that passed every static check and
-# emitted no samples at all.
-node /opt/libsidplayfp-wasm/scripts/smoke-render.mjs "${OUTPUT_ROOT}" /opt/libsidplayfp-wasm/test-tone-c4.sid
+    # A strings check proves what was linked, not that it works. reSIDfp's
+    # filter-table threads can throw at load time in exactly this configuration,
+    # producing an artifact that passes every static check and emits no samples.
+    node /opt/libsidplayfp-wasm/scripts/smoke-render.mjs "${output_root}" /opt/libsidplayfp-wasm/test-tone-c4.sid
 
-cp COPYING "${OUTPUT_ROOT}/LICENSE"
+    # The GPL text that governs the binary, alongside the notices for the
+    # third-party components compiled into it and the changes made to upstream.
+    # Every directory that carries a .wasm carries these too, so an artifact
+    # copied out of the package on its own is still compliant.
+    cp COPYING "${output_root}/LICENSE"
+    cp /opt/libsidplayfp-wasm/THIRD-PARTY-NOTICES.md "${output_root}/THIRD-PARTY-NOTICES.md"
+    cp /opt/libsidplayfp-wasm/MODIFICATIONS.md "${output_root}/MODIFICATIONS.md"
 
-# The artifact's package metadata, type surface and README come from checked-in
-# files, so the public contract is reviewed alongside bindings.cpp instead of
-# living in an un-type-checked heredoc emitted once per engine. The version is
-# read from the real package.json.
-PACKAGE_VERSION="$(node -p "require('/opt/libsidplayfp-wasm/package.json').version")"
-node -e '
+    # Record exactly which upstream commits this binary was built from, beside
+    # the binary itself, so the corresponding source is identifiable from the
+    # artifact alone.
+    node -e '
+const { writeFileSync, readFileSync } = require("node:fs");
+const [target, upstreamPath, version] = process.argv.slice(1);
+const upstream = JSON.parse(readFileSync(upstreamPath, "utf8"));
+writeFileSync(target, `${JSON.stringify({
+  package: "@chrisgleissner/libsidplayfp-wasm",
+  version,
+  libsidplayfp: upstream.libsidplayfp,
+  libresidfp: upstream.libresidfp,
+  note: "Complete corresponding source: see THIRD-PARTY-NOTICES.md.",
+}, null, 2)}\n`);
+' "${output_root}/UPSTREAM.json" /opt/libsidplayfp-wasm/upstream.json "${PACKAGE_VERSION}"
+
+    # The artifact's package metadata, type surface and README come from
+    # checked-in files, so the public contract is reviewed alongside bindings.cpp
+    # instead of living in an un-type-checked heredoc. The version is read from
+    # the real package.json.
+    node -e '
 const { writeFileSync } = require("node:fs");
 const [target, version] = process.argv.slice(1);
 writeFileSync(target, `${JSON.stringify({
-  name: "libsidplayfp-wasm",
+  // Scoped and private: this manifest exists only so Node treats the sibling
+  // .js as ESM and resolves its types. It is not a publishable package, and an
+  // unscoped "libsidplayfp-wasm" here would read as an official upstream build.
+  name: "@chrisgleissner/libsidplayfp-wasm-artifact",
   version,
-  description: "WebAssembly build of libsidplayfp with embind bindings for TypeScript projects.",
+  private: true,
+  description: "Build artifact of @chrisgleissner/libsidplayfp-wasm. Not an official libsidplayfp release.",
   type: "module",
   main: "./libsidplayfp.js",
   module: "./libsidplayfp.js",
   types: "./libsidplayfp.d.ts",
   sideEffects: false,
 }, null, 2)}\n`);
-' "${OUTPUT_ROOT}/package.json" "${PACKAGE_VERSION}"
+' "${output_root}/package.json" "${PACKAGE_VERSION}"
 
-cp /opt/libsidplayfp-wasm/src/bindings/libsidplayfp.d.ts "${OUTPUT_ROOT}/libsidplayfp.d.ts"
-cp /opt/libsidplayfp-wasm/src/bindings/ARTIFACT.md "${OUTPUT_ROOT}/README.md"
+    cp /opt/libsidplayfp-wasm/src/bindings/libsidplayfp.d.ts "${output_root}/libsidplayfp.d.ts"
+    cp /opt/libsidplayfp-wasm/src/bindings/ARTIFACT.md "${output_root}/README.md"
+}
+
+if [[ "${SID_ENGINE}" == "both" ]]; then
+    link_engine residfp "${OUTPUT_ROOT}"
+    link_engine sidlite "${OUTPUT_ROOT}/sidlite"
+else
+    link_engine "${SID_ENGINE}" "${OUTPUT_ROOT}"
+fi
 
 rm -rf "${BUILD_ROOT}"

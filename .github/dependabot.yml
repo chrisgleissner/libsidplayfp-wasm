@@ -1,0 +1,92 @@
+version: 2
+
+# Update strategy
+# ---------------
+# Routine "keep fresh" updates are restricted to minor and patch bumps and
+# batched into a single weekly cross-ecosystem PR. Every Dependabot PR runs the
+# full Verify workflow — both engines rebuilt from source, the unit suite at
+# 100% coverage, four browsers, and native differential parity — so a breakage
+# surfaces in the PR rather than after merge.
+#
+# Security updates are NOT restricted by the rules below. GitHub's `ignore` +
+# `update-types` filter applies to version updates only: security updates are
+# raised automatically for every manifest, fire immediately rather than on the
+# weekly schedule, and may cross a major boundary when that is the only
+# available fix. Security updates cannot join a multi-ecosystem group, so each
+# entry additionally groups same-day advisories within its own ecosystem into
+# one PR instead of one PR per advisory.
+#
+# Major upgrades are deliberately opt-in. In this repository they are rarely
+# routine: the emscripten image decides the bytes of every published artifact,
+# so a major toolchain bump needs its own PR with parity numbers and artifact
+# sizes reviewed alongside it.
+#
+# Not covered here, by design: libsidplayfp and libresidfp. Dependabot cannot
+# read `upstream.json`, and those pins carry their own release qualification via
+# `.github/workflows/upstream-watch.yaml`.
+
+multi-ecosystem-groups:
+  weekly-rollup:
+    schedule:
+      interval: weekly
+      day: friday
+      time: "06:00"
+      timezone: UTC
+    commit-message:
+      prefix: deps
+    labels:
+      - dependencies
+    open-pull-requests-limit: 1
+
+updates:
+  # Development tooling only. The published package has no runtime
+  # dependencies, so nothing here reaches a consumer's node_modules.
+  - package-ecosystem: npm
+    directory: /
+    multi-ecosystem-group: weekly-rollup
+    patterns:
+      - "*"
+    groups:
+      security-rollup:
+        applies-to: security-updates
+        patterns:
+          - "*"
+    ignore:
+      - dependency-name: "*"
+        update-types:
+          - version-update:semver-major
+
+  - package-ecosystem: github-actions
+    directory: /
+    multi-ecosystem-group: weekly-rollup
+    patterns:
+      - "*"
+    groups:
+      security-rollup:
+        applies-to: security-updates
+        patterns:
+          - "*"
+    ignore:
+      - dependency-name: "*"
+        update-types:
+          - version-update:semver-major
+
+  # The emscripten toolchain image. This is the compiler, so a bump changes the
+  # WebAssembly that ships; native differential parity is what decides whether
+  # the change is acceptable. Majors stay manual because emscripten 4.0 moved
+  # the exception-handling default, which is a browser-support decision rather
+  # than a dependency bump.
+  - package-ecosystem: docker
+    directory: /docker
+    multi-ecosystem-group: weekly-rollup
+    patterns:
+      - "*"
+    groups:
+      security-rollup:
+        applies-to: security-updates
+        patterns:
+          - "*"
+    ignore:
+      - dependency-name: "*"
+        update-types:
+          - version-update:semver-major

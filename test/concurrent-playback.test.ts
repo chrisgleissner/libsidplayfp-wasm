@@ -6,7 +6,7 @@ import { SidAudioEngine, type SidEngine } from "../src/index.js";
 import { measure } from "../scripts/engine-metrics.mjs";
 
 const TONE = new Uint8Array(
-  readFileSync(path.resolve(import.meta.dirname, "../test-tone-c4.sid")),
+  readFileSync(path.resolve(import.meta.dirname, "fixtures/test-tone-c4.sid")),
 );
 const ENGINES: SidEngine[] = ["residfp", "sidlite"];
 

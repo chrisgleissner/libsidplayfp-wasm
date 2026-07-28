@@ -1,0 +1,13 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Questions and general discussion
+    url: https://github.com/chrisgleissner/libsidplayfp-wasm/discussions
+    about: Please use Discussions for questions, integration help, and open-ended topics.
+  - name: Playback bugs in libsidplayfp itself
+    url: https://github.com/libsidplayfp/libsidplayfp/issues
+    about: >-
+      This package compiles libsidplayfp unmodified. If a native sidplayfp reproduces the same
+      behaviour, the defect is upstream — please report it there.
+  - name: Missing or wrong tune metadata
+    url: https://www.hvsc.c64.org/
+    about: Titles, authors, and song lengths come from the SID file and from HVSC, not from this package.

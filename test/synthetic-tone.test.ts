@@ -15,7 +15,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 function loadSyntheticSid(): Uint8Array {
-    const sidPath = join(import.meta.dir, '../test-tone-c4.sid');
+    const sidPath = join(import.meta.dir, 'fixtures/test-tone-c4.sid');
     return new Uint8Array(readFileSync(sidPath));
 }
 

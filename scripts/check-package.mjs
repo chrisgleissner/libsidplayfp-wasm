@@ -29,10 +29,43 @@ try {
   const packageName = "@chrisgleissner/libsidplayfp-wasm";
 
   const entries = run("tar", ["-tzf", tarball]).trim().split("\n");
-  const forbidden = entries.filter((entry) => /(^|\/)(\.cache|src|test|scripts|docker|node_modules)(\/|$)|\.sid$/i.test(entry));
-  if (forbidden.length > 0) throw new Error(`package contains development-only files: ${forbidden.join(", ")}`);
-  for (const required of ["package/dist/index.js", "package/dist/libsidplayfp.wasm", "package/dist/sidlite/libsidplayfp.wasm", "package/LICENSE", "package/README.md"]) {
-    if (!entries.includes(required)) throw new Error(`package is missing ${required}`);
+
+  // Development-only material, and anything whose copyright is not ours to
+  // redistribute: C64 ROM images, SID tunes, and the HVSC cache.
+  const forbidden = entries.filter((entry) =>
+    /(^|\/)(\.cache|src|test|scripts|docker|node_modules)(\/|$)/i.test(entry) ||
+    /\.(sid|mus|str|prg|p00|d64|t64|rom|bin|7z)$/i.test(entry) ||
+    /(^|\/)(kernal|basic|chargen)([._-]|$)/i.test(entry) ||
+    /(^|\/)\.tsbuildinfo$/i.test(entry),
+  );
+  if (forbidden.length > 0) {
+    throw new Error(`package contains files it must not distribute: ${forbidden.join(", ")}`);
+  }
+
+  // Licensing and attribution. The GPL text, the notices for the third-party
+  // code compiled into the binaries, and the record of what was changed in
+  // upstream must travel with the object code — beside every .wasm, so an
+  // artifact copied out on its own is still compliant.
+  const required = [
+    "package/dist/index.js",
+    "package/dist/libsidplayfp.wasm",
+    "package/dist/sidlite/libsidplayfp.wasm",
+    "package/LICENSE",
+    "package/README.md",
+    "package/THIRD-PARTY-NOTICES.md",
+    "package/MODIFICATIONS.md",
+    "package/dist/LICENSE",
+    "package/dist/THIRD-PARTY-NOTICES.md",
+    "package/dist/MODIFICATIONS.md",
+    "package/dist/UPSTREAM.json",
+    "package/dist/complete-source.tar.gz",
+    "package/dist/sidlite/LICENSE",
+    "package/dist/sidlite/THIRD-PARTY-NOTICES.md",
+    "package/dist/sidlite/MODIFICATIONS.md",
+    "package/dist/sidlite/UPSTREAM.json",
+  ];
+  for (const entry of required) {
+    if (!entries.includes(entry)) throw new Error(`package is missing ${entry}`);
   }
 
   writeFileSync(
@@ -41,10 +74,75 @@ try {
   );
   execFileSync("npm", ["install", "--ignore-scripts", "--package-lock=false"], { cwd: scratch, stdio: "inherit" });
 
+  // A licence file that does not contain the licence, or notices that omit a
+  // component actually compiled into the binaries, would satisfy the file-list
+  // check above while failing the obligation it exists for.
+  const installed = path.join(scratch, "node_modules", packageName);
+  const licenceText = readFileSync(path.join(installed, "LICENSE"), "utf8");
+  for (const phrase of ["GNU GENERAL PUBLIC LICENSE", "Version 2, June 1991"]) {
+    if (!licenceText.includes(phrase)) throw new Error(`LICENSE does not contain ${phrase}`);
+  }
+  const notices = readFileSync(path.join(installed, "THIRD-PARTY-NOTICES.md"), "utf8");
+  for (const component of [
+    "libsidplayfp",
+    "libresidfp",
+    "SIDLite",
+    "hashlib",     // MIT, linked in via SidTune::createMD5New
+    "Emscripten",
+    "musl",
+    "LLVM",
+    "Complete corresponding source",
+    "not endorsed by or affiliated with",
+  ]) {
+    if (!notices.includes(component)) {
+      throw new Error(`THIRD-PARTY-NOTICES.md does not mention ${component}`);
+    }
+  }
+
+  // The GPL entitles recipients to the source for the binaries, and this package
+  // satisfies that by shipping it. Verify the archive actually contains the
+  // upstream sources and the build, not just that a file with the right name is
+  // present.
+  const sourceEntries = run("tar", [
+    "-tzf",
+    path.join(installed, "dist", "complete-source.tar.gz"),
+  ]).split("\n");
+  for (const expected of [
+    /\/libsidplayfp\/COPYING$/,
+    /\/libresidfp\/COPYING$/,
+    /\/libsidplayfp\/src\/sidplayfp\/sidplayfp\.cpp$/,
+    /\/libresidfp\/src\/SID\.cpp$/,
+    /\/libsidplayfp-wasm\/src\/bindings\/bindings\.cpp$/,
+    /\/libsidplayfp-wasm\/scripts\/apply-sid-write-hook\.py$/,
+    /\/libsidplayfp-wasm\/scripts\/apply-thread-guards\.py$/,
+    /\/libsidplayfp-wasm\/docker\/entrypoint\.sh$/,
+  ]) {
+    if (!sourceEntries.some((entry) => expected.test(entry))) {
+      throw new Error(`complete-source.tar.gz is missing ${expected}`);
+    }
+  }
+
+  // The upstream commits recorded beside each artifact are what identifies the
+  // corresponding source, so they must match the pins the build actually used.
+  const pins = JSON.parse(readFileSync(path.join(PACKAGE_ROOT, "upstream.json"), "utf8"));
+  for (const artifact of ["dist", "dist/sidlite"]) {
+    const stamped = JSON.parse(
+      readFileSync(path.join(installed, artifact, "UPSTREAM.json"), "utf8"),
+    );
+    for (const library of ["libsidplayfp", "libresidfp"]) {
+      if (stamped[library]?.commit !== pins[library].commit) {
+        throw new Error(
+          `${artifact}/UPSTREAM.json records ${library} ${stamped[library]?.commit}, ` +
+            `but upstream.json pins ${pins[library].commit}`,
+        );
+      }
+    }
+  }
+
   // The same smoke test the released package is put through after publishing,
   // so the bytes we verify and the bytes users get are held to one standard.
   copyFileSync(
-    path.join(PACKAGE_ROOT, "test-tone-c4.sid"),
+    path.join(PACKAGE_ROOT, "test", "fixtures", "test-tone-c4.sid"),
     path.join(scratch, "tune.sid"),
   );
   writeFileSync(

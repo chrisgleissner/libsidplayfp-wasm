@@ -4,7 +4,7 @@ import { SidAudioEngine } from "../src/player.js";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
-const testSidPath = resolve(__dirname, "../test-tone-c4.sid");
+const testSidPath = resolve(__dirname, "fixtures/test-tone-c4.sid");
 let testSidData: Uint8Array;
 
 beforeAll(() => {

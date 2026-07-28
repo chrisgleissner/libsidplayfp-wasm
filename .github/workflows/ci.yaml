@@ -31,7 +31,7 @@ jobs:
       - name: Check the upstream pin and version invariants
         run: node scripts/upstream.mjs verify
 
-      - name: Run full unit suite with the 95% line-coverage gate
+      - name: Run full unit suite with the 100% line-coverage gate
         run: bun run test:coverage
 
       - name: Upload the verified LCOV report to Codecov

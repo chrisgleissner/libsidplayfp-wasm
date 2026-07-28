@@ -121,7 +121,7 @@ function generateSidFile(): Uint8Array {
 
 // Generate and save
 const sidData = generateSidFile();
-const outputPath = join(import.meta.dir, '../test-tone-c4.sid');
+const outputPath = join(import.meta.dir, '../test/fixtures/test-tone-c4.sid');
 writeFileSync(outputPath, sidData);
 
 console.log(`✓ Generated synthetic C4 SID file: ${outputPath}`);
