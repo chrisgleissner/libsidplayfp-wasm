@@ -115,6 +115,24 @@ const accurate = new SidAudioEngine({ engine: "residfp" });
 `LIBSIDPLAYFP_WASM_ENGINE` sets a process-wide default; an explicit `engine`
 option always wins.
 
+**On slow hardware the choice decides whether playback survives.** Filling a
+20 ms audio buffer, in Chromium with a 64 MB heap and the CPU throttled:
+
+| CPU throttle | SIDLite | reSIDfp |
+| --- | --- | --- |
+| 1× (desktop) | 0.4 ms | 1.3 ms |
+| 4× (mid-tier phone) | 1.8 ms | 7.5 ms |
+| 10× | 4.7 ms | 13.7 ms |
+| 20× | **9.1 ms** | **31.8 ms — too slow to keep up** |
+
+Worst call over 300, against a 20 ms budget. reSIDfp costs about 5× SIDLite and
+scales linearly with CPU speed, so on a low-end device it stops being realtime
+while SIDLite still has half its budget spare. Render offline and cache, or use
+SIDLite, if you cannot control the hardware.
+
+Neither engine accumulates memory: 2000 seconds of streamed audio — 100,000
+buffers — retains nothing measurable and does not slow down.
+
 ## 🔧 Lower-level access
 
 The default export gives you libsidplayfp's `SidPlayerContext` directly. It is

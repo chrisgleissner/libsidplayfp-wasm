@@ -67,7 +67,8 @@
     "version:bump": "node scripts/upstream.mjs bump",
     "version:adopt-mirror": "node scripts/upstream.mjs adopt-mirror",
     "version:constants": "node scripts/upstream.mjs emit-constants",
-    "api:drift": "node scripts/api-drift.mjs"
+    "api:drift": "node scripts/api-drift.mjs",
+    "test:constrained": "LIBSIDPLAYFP_WASM_CONSTRAINED=1 playwright test --project=constrained-device"
   },
   "devDependencies": {
     "@playwright/test": "^1.55.1",
