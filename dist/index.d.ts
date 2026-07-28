@@ -40,4 +40,5 @@ export type { SidWriteTrace } from "./player.js";
  */
 export { LIBRESIDFP_VERSION, LIBSIDPLAYFP_VERSION, PACKAGE_VERSION, UPSTREAM_COMMITS } from "./upstream-versions.js";
 export default loadLibsidplayfp;
+export { SonglengthDatabase } from "./songlengths.js";
 //# sourceMappingURL=index.d.ts.map

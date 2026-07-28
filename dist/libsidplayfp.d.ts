@@ -97,6 +97,12 @@ export interface SidTuneInfo {
   initAddress: number;
   playAddress: number;
   dataFileLen: number;
+  /** Empty unless the tune was loaded with `loadSidFile`. */
+  dataFileName: string;
+  /** Empty unless the tune was loaded with `loadSidFile`. */
+  infoFileName: string;
+  /** Empty unless the tune was loaded with `loadSidFile`. */
+  path: string;
   c64dataLen: number;
   /** Raw `SidTuneInfo::clock_t` ordinal. Prefer `clock`. */
   clockSpeed: number;

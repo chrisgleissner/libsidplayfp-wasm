@@ -40,6 +40,12 @@ jobs:
       - name: Check the upstream pin and version invariants
         run: node scripts/upstream.mjs verify
 
+      # Deliberately not a gate: see the note at the top of the script. Upstream
+      # grows on its own schedule, and a red build for that would teach people to
+      # silence the check rather than read it. The report lands in the job summary.
+      - name: Report libsidplayfp API surface we do not expose
+        run: node scripts/api-drift.mjs
+
       - name: Run full unit suite with the 100% line-coverage gate
         run: bun run test:coverage
 

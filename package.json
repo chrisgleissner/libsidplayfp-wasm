@@ -1,6 +1,6 @@
 {
   "name": "libsidplayfp-wasm",
-  "version": "0.1.1",
+  "version": "1.0.0",
   "description": "Independent WebAssembly distribution of libsidplayfp, the Commodore 64 SID player, with TypeScript bindings.",
   "license": "GPL-2.0-or-later",
   "type": "module",
@@ -64,7 +64,8 @@
     "version:verify": "node scripts/upstream.mjs verify",
     "version:bump": "node scripts/upstream.mjs bump",
     "version:adopt-mirror": "node scripts/upstream.mjs adopt-mirror",
-    "version:constants": "node scripts/upstream.mjs emit-constants"
+    "version:constants": "node scripts/upstream.mjs emit-constants",
+    "api:drift": "node scripts/api-drift.mjs"
   },
   "devDependencies": {
     "@playwright/test": "^1.55.1",

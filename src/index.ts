@@ -177,3 +177,5 @@ export {
 } from "./upstream-versions.js";
 
 export default loadLibsidplayfp;
+
+export { SonglengthDatabase } from "./songlengths.js";

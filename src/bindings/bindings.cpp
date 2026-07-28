@@ -965,6 +965,12 @@ public:
         obj.set("initAddress", info->initAddr());
         obj.set("playAddress", info->playAddr());
         obj.set("dataFileLen", info->dataFileLen());
+        // Populated only when the tune came from loadSidFile; a tune read from a
+        // buffer has no name or directory of its own. Empty string, not null, so
+        // the field's type does not change with how the tune was loaded.
+        obj.set("dataFileName", info->dataFileName() ? info->dataFileName() : "");
+        obj.set("infoFileName", info->infoFileName() ? info->infoFileName() : "");
+        obj.set("path", info->path() ? info->path() : "");
         obj.set("c64dataLen", info->c64dataLen());
         // Kept as the raw enum ordinal for backwards compatibility; clock is the
         // readable spelling and is what new code should use.

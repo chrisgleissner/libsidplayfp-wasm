@@ -139,6 +139,29 @@ try {
 `SidAudioEngine` copies for you; the transient-buffer contract applies only
 here.
 
+Every method libsidplayfp exposes is reachable, and a check in CI reports it if
+a future upstream release adds one this binding has not caught up with.
+
+## ⏱️ How long is this tune?
+
+SID files carry no duration — a tune plays until you stop it. HVSC publishes
+`Songlengths.md5`, keyed by the same MD5 the engine computes.
+
+```ts
+import { SonglengthDatabase } from "libsidplayfp-wasm";
+
+const songlengths = SonglengthDatabase.parse(
+  await (await fetch("/Songlengths.md5")).text(),
+);
+
+const md5 = await player.getTuneMd5();
+const seconds = songlengths.lengthSeconds(md5, player.getTuneInfo().currentSong);
+```
+
+Absent tunes and out-of-range songs return `null`, and a malformed line costs
+you that line rather than the database. Parsing matches libsidplayfp's own
+`SidDatabase`, down to `.5` meaning 500 ms.
+
 ## 🌐 Browsers and bundlers
 
 The loader finds its `.wasm` beside its JavaScript. If your bundler relocates
