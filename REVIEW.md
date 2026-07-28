@@ -54,8 +54,8 @@ findings after the merge. Independently verified:
 | 1 | `bindings.cpp:708` — `SidPlayerContext` "is exposed with no deleter"; `delete?.()` is always undefined and every context leaks | **Refuted** | embind synthesises `delete()`/`isDeleted()` on every `class_<>` binding via its `RegisteredPointer` base. Probed the shipped artifact: `typeof p.delete === "function"`, `typeof p.isDeleted === "function"`, and `p.isDeleted() === true` after `p.delete()`. `dist/libsidplayfp.d.ts` also declares it. No leak. |
 | 2 | `soak.yaml:15` — `timeout-minutes: 50` kills the "two-hour" soak declared by `LIBSIDPLAYFP_WASM_SOAK_SECONDS: 7200` | **Refuted** | `LIBSIDPLAYFP_WASM_SOAK_SECONDS` is *virtual* playback seconds, not wall clock — the README and AGENTS.md both say "virtual". Measured: 600 virtual seconds × 2 engines = **41.5 s wall clock**, so 7200 s ≈ **8.5 minutes**, comfortably inside 50. |
 | 3 | `release.yaml:199` — a legacy `NPM_TOKEN` in `.npmrc` conflicts with `--provenance` and fails with `EPUBLISH` | **Refuted as stated, but the step is broken for a different reason** | npm supports `--provenance` with token auth; the OIDC token is used for the attestation, not for registry auth, and `id-token: write` is granted. The real defect is [C3](#c3) below: `actions/setup-node` exports `NPM_CONFIG_USERCONFIG=$RUNNER_TEMP/.npmrc`, so the workflow's `printf … > "$HOME/.npmrc"` is read by nothing and the **GitHub Packages publish cannot authenticate**. |
-| 4 | `realtime-playback.test.ts:152` — `expect(true).toBe(true)` + `return` passes for any zero-sample run | **Confirmed** | Verbatim. Fixed as [M8](#m8). Severity is low, not critical: the guard fires only when the tune produces no samples at all, which the surrounding suite would already catch. |
-| 5 | `player.ts:299` — `romFailureLogged = false` sits after the early return, so a pre-context call permanently suppresses the warning | **Confirmed** | `src/player.ts:299` sets `romSupportDisabled`, returns at 304–306 when there is no context, and only resets `romFailureLogged` at 308. Fixed as [M4](#m4). |
+| 4 | `realtime-playback.test.ts:152` — `expect(true).toBe(true)` + `return` passes for any zero-sample run | **Confirmed** | Verbatim. Fixed; see the remediation table (M8). Severity is low, not critical: the guard fires only when the tune produces no samples at all, which the surrounding suite would already catch. |
+| 5 | `player.ts:299` — `romFailureLogged = false` sits after the early return, so a pre-context call permanently suppresses the warning | **Confirmed** | `src/player.ts:299` sets `romSupportDisabled`, returns at 304–306 when there is no context, and only resets `romFailureLogged` at 308. Fixed; see the remediation table (M4). |
 | 6 | `player.ts:711` — `buildCacheBuffer` holds `chunks[]` *and* `combined`, peaking near 211 MiB at the 600 s default | **Confirmed** | 600 s × 44 100 × 2 ch × 2 B = 105.8 MiB, held twice at the join. Fixed as [P4](#p4). |
 | 7 | `.codecov.yml` — missing `carryforward: true`/`flags` will fail the 95% patch gate on doc-only PRs | **Refuted** | `carryforward` applies to *flag-partitioned* uploads; this project makes a single unflagged upload covering all of `src/`. Codecov reports a patch with no coverable lines as passing. No change made. |
 
@@ -224,7 +224,7 @@ is therefore *defined* as the upstream version, so there is no version number
 available for a fix to this repository's own TypeScript, loader, bindings, or
 packaging. See §7 for the replacement scheme.
 
-### C6 — `render()` hands out a live view into WASM memory &nbsp;·&nbsp; **Medium**
+### C6 — `render()` hands out a live view into WASM memory <a id="c6"></a> &nbsp;·&nbsp; **Medium**
 
 `SidPlayerContext::render()` returns `emscripten::typed_memory_view(...)` over
 `mixBuffer`. The returned `Int16Array` is a window onto the heap, not a copy: it
@@ -372,7 +372,7 @@ have the build copy it.
 `src/player.ts:184-221` (`applySystemROMs`) and `src/player.ts:311-347`
 (`setSystemROMs`) contain the same try / disable / warn-once / reset-to-built-in
 sequence, differing only in which context object they touch. This is exactly
-where finding [M4](#m4) hides.
+where the PR #1 finding M4 (the unreset warning flag) hides.
 
 ### D3 — Four independent render loops
 
@@ -649,7 +649,63 @@ Applied in the accompanying branch, in severity order:
 | Full unit suite | 371 pass, 1 skip, 0 fail |
 | Production TypeScript line coverage | 99.39% (657/661), gate 95% |
 | Native differential parity, both engines | 58/58 fixtures within thresholds |
-| — SIDLite versus native | correlation 1.0000000, error floor below −600 dBFS (bit-identical) |
-| — reSIDfp versus native | correlation ≥ 0.999999, error floor −81 to −90 dBFS |
+| — SIDLite versus native | correlation 1.0000000, zero error floor (bit-identical) |
+| — reSIDfp versus native | correlation ≥ 0.999999, error floor −81 to −90 dBFS (see §10) |
 | Clean-package and Node consumer check | pass |
 | Build-time artifact identity and smoke render | pass for both engines |
+
+---
+
+## 10. Why reSIDfp is not bit-identical to a native build, and SIDLite is
+
+SIDLite's emulation is integer-only, so its WASM and native builds agree
+exactly. reSIDfp does not, and the difference is worth pinning down rather than
+attributing to "floating point".
+
+reSIDfp calls exactly two non-correctly-rounded libm functions, both while
+building lookup tables at initialisation:
+
+* `libresidfp/src/FilterModelConfig6581.cpp:272` —
+  `std::log1p(std::exp(kVgt_Vx * r_N16_2Ut))`, over a 65 536-entry sweep.
+* `libresidfp/src/WaveformCalculator.cpp:63` — `std::pow(distance, -i)` for the
+  combined-waveform tables.
+
+IEEE-754 requires `sqrt` to be correctly rounded but not `exp`, `log1p`, or
+`pow`, so emscripten's musl-derived libm and glibc are both conformant while
+disagreeing in the last bit. Computing libresidfp's own filter table under each,
+bit for bit:
+
+```
+table entries      : 65536
+differing entries  : 28  (0.04%)
+max ULP difference : 1
+ULP histogram      : {1: 28}
+```
+
+Every difference is exactly one ULP of a double — the smallest non-zero
+difference the format can represent. This is the floor, not a symptom.
+
+Those 28 perturbed table entries feed a resonant IIR filter, which is why the
+rendered difference reaches up to 15 LSB out of 32768 (≈ −67 dBFS peak,
+−81 to −90 dBFS RMS) rather than staying at the 10⁻¹⁶ level of the input.
+
+The two ways to force bit-identity both cost more than they buy:
+
+* **Build the native control against musl.** They would agree, but the control
+  would no longer be independent of emscripten's runtime — and it would stop
+  resembling the native `sidplayfp` any user actually runs.
+* **Replace the libm calls in upstream.** Our output would then differ from
+  *every* native build rather than from one, consistently and permanently.
+
+What is genuinely required — and is not implied by the parity numbers — is that
+each build be a pure function of its inputs. That is now asserted directly
+(`test/binding-surface.test.ts`), for both engines:
+
+| Property | residfp | sidlite |
+| --- | --- | --- |
+| Same audio when rendered twice | yes | yes |
+| Same audio at chunk sizes 5 000 and 100 000 cycles | yes | yes |
+
+Chunk-size invariance is the specific property a mixer holding freed chip
+buffers destroys, because the contents of the freed region depend on allocator
+activity. Asserting it directly is stronger evidence than any spectral summary.

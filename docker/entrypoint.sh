@@ -160,9 +160,8 @@ emconfigure ./configure \
 # libresidfp's configure hard-codes `-ffast-math -fno-unsafe-math-optimizations`
 # into RESIDFP_CXXFLAGS (configure.ac), and appends them after any value passed
 # in, so they cannot be overridden on the configure line. Rewriting the
-# generated Makefile is the only way to vary them — which matters because the
-# wasm artifact measures ~10 dB brighter above 3 kHz than a native build of the
-# identical source, and the fast-math family is the leading suspect.
+# generated Makefile is the only way to vary them, which makes this the knob for
+# investigating any suspected floating-point divergence from a native build.
 RESIDFP_MATH_FLAGS="${LIBSIDPLAYFP_WASM_RESIDFP_MATH_FLAGS:-${SIDFLOW_RESIDFP_MATH_FLAGS:-}}"
 if [[ -n "${RESIDFP_MATH_FLAGS}" ]]; then
     echo "overriding libresidfp math flags: ${RESIDFP_MATH_FLAGS}"

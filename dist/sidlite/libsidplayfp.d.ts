@@ -1,11 +1,8 @@
 /**
  * Type surface of the generated embind module.
  *
- * This file is the single source of truth for it. `docker/entrypoint.sh` copies
- * it verbatim next to each built artifact as `libsidplayfp.d.ts`; it used to be
- * a heredoc inside that shell script, which meant the package's public types
- * existed only as an un-type-checked string that had to be hand-mirrored
- * against `bindings.cpp`.
+ * This file is the single source of truth for it: `docker/entrypoint.sh` copies
+ * it verbatim next to each built artifact as `libsidplayfp.d.ts`.
  *
  * Keep it in step with `src/bindings/bindings.cpp`.
  */
@@ -70,16 +67,25 @@ export interface ResolvedEmulationConfig
   channels: number;
 }
 
-/** reSIDfp analogue tuning. Rejected by the SIDLite artifact. */
+/**
+ * reSIDfp analogue tuning. Rejected by the SIDLite artifact.
+ *
+ * `filter6581Range` and `old6581Caps` are **process-global**: reSIDfp applies
+ * them to a `FilterModelConfig6581` singleton through static methods, so they
+ * affect every SID instance sharing this WASM module, including ones created
+ * earlier. The other three are per-chip. Load a separate module instance if two
+ * players in one process need different values.
+ */
 export interface FilterConfig {
-  /** 6581 filter cutoff curve, 0.0..1.0. */
+  /** 6581 filter cutoff curve, 0.0..1.0. Per chip. */
   filter6581Curve?: number;
-  /** 6581 filter cutoff range, 0.0..1.0. */
+  /** 6581 filter cutoff range, 0.0..1.0, default 0.5. Process-global. */
   filter6581Range?: number;
-  /** 8580 filter cutoff curve, 0.0..1.0. */
+  /** 8580 filter cutoff curve, 0.0..1.0. Per chip. */
   filter8580Curve?: number;
-  /** Emulate the original, leakier 6581 filter capacitors. */
+  /** Emulate the original, leakier 6581 filter capacitors. Process-global. */
   old6581Caps?: boolean;
+  /** Strength of the combined-waveform tables. Per chip. */
   combinedWaveforms?: CombinedWaveforms;
 }
 
