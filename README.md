@@ -150,8 +150,9 @@ the binary path.
 
 The binaries use [WebAssembly exception
 handling](https://webassembly.org/features/), so they need a runtime that
-supports it. Every browser Playwright ships is verified on each commit; Node 18+
-and Bun work.
+supports it. Every browser Playwright ships is verified on each commit, and the
+packed package is installed and made to play a SID under **Node 20, 22 and 24**
+on every commit. Bun works too — the test suite runs on it.
 
 ## C64 ROMs
 
