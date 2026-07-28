@@ -646,8 +646,11 @@ Applied in the accompanying branch, in severity order:
 
 | Gate | Result |
 | --- | --- |
-| Full unit suite | 371 pass, 1 skip, 0 fail |
+| Full unit suite | 380 pass, 1 skip, 0 fail |
 | Production TypeScript line coverage | 99.39% (657/661), gate 95% |
+| Browser suite | 28 pass across Chromium, Pixel-5 Chromium, Firefox, WebKit |
+| Complete HVSC #85 edge sweep, both engines | 1678 fixtures, 0 failures |
+| Render determinism and chunk-size invariance | both engines |
 | Native differential parity, both engines | 58/58 fixtures within thresholds |
 | — SIDLite versus native | correlation 1.0000000, zero error floor (bit-identical) |
 | — reSIDfp versus native | correlation ≥ 0.999999, error floor −81 to −90 dBFS (see §10) |
