@@ -14,7 +14,12 @@ permissions:
 # ambiguous as well as wasteful.
 concurrency:
   group: verify-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  # Cancel superseded pull-request runs, never a run on main. Main is the branch
+  # the build badge reports, and the badge reflects the latest *completed* run —
+  # so cancelling one because another commit arrived moments later leaves the
+  # project looking broken when nothing is. Two doc commits in quick succession
+  # did exactly that.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   verify:
