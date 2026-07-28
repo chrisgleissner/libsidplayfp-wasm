@@ -160,7 +160,15 @@ different things until they were made one file. Ask specifically:
 - The `.d.ts` for any binding change, including scope caveats — some reSIDfp
   settings are process-global and the type surface has to say so.
 
-**4. Claims.** Every factual statement in the docs must be checkable, and you
+**4. Workflows.** Validate any change to `.github/` with `actionlint`, which is
+what CI runs. `yaml.safe_load` is not sufficient: it accepts a workflow GitHub
+rejects, and an unparseable workflow shows up as a failed run with no jobs and
+no useful error. The specific trap is a blank line inside a quoted multi-line
+shell argument — the continuation lands at column 0 and silently terminates the
+surrounding block scalar. Build multi-line text with a heredoc and pass it by
+file.
+
+**5. Claims.** Every factual statement in the docs must be checkable, and you
 must have checked it. State what is actually tested, not what sounds thorough:
 name the browsers the config really runs, the number of tunes really swept, the
 duration really rendered. If you cannot verify a claim, remove it.
