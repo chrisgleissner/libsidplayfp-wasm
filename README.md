@@ -123,15 +123,15 @@ option always wins.
 | 1× (desktop) | 0.4 ms | 1.3 ms |
 | 4× (mid-tier phone) | 1.8 ms | 7.5 ms |
 | 10× | 4.7 ms | 13.7 ms |
-| 20× | **9.1 ms** | **31.8 ms — too slow to keep up** |
+| 20× | **9.1 ms** | **31.8 ms - too slow to keep up** |
 
 Worst call over 300, against a 20 ms budget. reSIDfp costs about 5× SIDLite and
 scales linearly with CPU speed, so on a low-end device it stops being realtime
 while SIDLite still has half its budget spare. Render offline and cache, or use
 SIDLite, if you cannot control the hardware.
 
-Neither engine accumulates memory: 2000 seconds of streamed audio — 100,000
-buffers — retains nothing measurable and does not slow down.
+Neither engine accumulates memory: 2000 seconds of streamed audio - 100,000
+buffers - retains nothing measurable and does not slow down.
 
 ## 🔧 Lower-level access
 
@@ -162,7 +162,7 @@ a future upstream release adds one this binding has not caught up with.
 
 ## ⏱️ How long is this tune?
 
-SID files carry no duration — a tune plays until you stop it. HVSC publishes
+SID files carry no duration - a tune plays until you stop it. HVSC publishes
 `Songlengths.md5`, keyed by the same MD5 the engine computes.
 
 ```ts
@@ -227,11 +227,11 @@ import { LIBSIDPLAYFP_VERSION, LIBRESIDFP_VERSION } from "libsidplayfp-wasm";
 
 This package versions itself, on its own `1.x` line: an upstream engine bump
 takes a minor, a fix of our own takes a patch. So `1.2.0` tells you the binding
-changed, not which libsidplayfp is inside it — the constants above do that.
+changed, not which libsidplayfp is inside it - the constants above do that.
 
 It will switch to mirroring upstream once this distribution has a track record,
 and a release that only advances libsidplayfp will then carry upstream's exact
-version — `v3.0.2` publishing as `3.0.2`.
+version - `v3.0.2` publishing as `3.0.2`.
 
 Because semver has no version between `3.0.2` and `3.0.3`, a fix to *this*
 package takes the next free patch and keeps the same upstream pin, and a mirror
@@ -260,14 +260,14 @@ source at the same pinned commits, not by listening.
   matches bit for bit; reSIDfp holds correlation > 0.99999 with an error floor
   of −81 to −90 dBFS, below the SID's own noise floor.
 - **Browsers**: Chromium and Firefox on the desktop, Chromium as a Pixel 5,
-  WebKit as an iPhone 13 — including playback from module workers.
+  WebKit as an iPhone 13 - including playback from module workers.
 - **Determinism**: identical audio on repeat and at any chunk size.
 - The packed tarball is installed into a clean project and made to play a SID
   under Node 20, 22 and 24.
 
 **Every release**
 
-A release does not repeat the checks above — it refuses to start unless that
+A release does not repeat the checks above - it refuses to start unless that
 commit's own run of them was green. What it adds is everything about the
 artifact rather than the source:
 
@@ -281,9 +281,9 @@ artifact rather than the source:
 
 **Weekly, and whenever the engine's own bytes change**
 
-- **1,678 tunes** selected from HVSC #85's 61,157 — every multi-SID, every
+- **1,678 tunes** selected from HVSC #85's 61,157 - every multi-SID, every
   BASIC-driven RSID, every file with 32+ subtunes, plus 400 each sampled from
-  the RSID and zero-play-address populations — rendered through both engines and
+  the RSID and zero-play-address populations - rendered through both engines and
   compared against native builds. This also runs on any pull request that
   touches the upstream pins, the toolchain or the bindings.
 - A soak renders two hours of emulated playback per engine and requires the
@@ -297,12 +297,12 @@ GPL-2.0-or-later, like libsidplayfp. The binaries also contain MIT components
 (`hashlib`, musl, the Emscripten runtime) and LLVM runtime libraries under
 Apache-2.0 with LLVM Exceptions.
 
-- [`LICENSE`](LICENSE) — the GPL-2.0 text.
-- [`THIRD-PARTY-NOTICES.md`](THIRD-PARTY-NOTICES.md) — every component compiled
+- [`LICENSE`](LICENSE) - the GPL-2.0 text.
+- [`THIRD-PARTY-NOTICES.md`](THIRD-PARTY-NOTICES.md) - every component compiled
   in, with its licence and copyright.
-- [`MODIFICATIONS.md`](MODIFICATIONS.md) — what this project changes in
+- [`MODIFICATIONS.md`](MODIFICATIONS.md) - what this project changes in
   libsidplayfp and libresidfp. None of it alters the emulation.
-- **`dist/complete-source.tar.gz`, inside this package** — the complete
+- **`dist/complete-source.tar.gz`, inside this package** - the complete
   corresponding source for the binaries, also attached to every release.
 
 **This is an independent redistribution**, not an official libsidplayfp product,
