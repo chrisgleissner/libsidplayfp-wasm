@@ -6,8 +6,8 @@
   },
   "libsidplayfp": {
     "repository": "https://github.com/libsidplayfp/libsidplayfp",
-    "ref": "v3.0.2",
-    "commit": "d7f7f0e78e09351ad53ff15a4cfb362c4f1c8339"
+    "ref": "v3.1.0",
+    "commit": "7c377133a2240995373499b50a44e1d38783da85"
   },
   "libresidfp": {
     "repository": "https://github.com/libsidplayfp/libresidfp",
