@@ -5,16 +5,16 @@
 // what a build actually contains.
 
 /** libsidplayfp release this build was compiled from, without the leading "v". */
-export const LIBSIDPLAYFP_VERSION = "3.0.2";
+export const LIBSIDPLAYFP_VERSION = "3.1.1";
 
 /** libresidfp release this build was compiled from, without the leading "v". */
 export const LIBRESIDFP_VERSION = "1.1.2";
 
 /** Immutable upstream commits, exactly as pinned in upstream.json. */
 export const UPSTREAM_COMMITS = {
-  libsidplayfp: "d7f7f0e78e09351ad53ff15a4cfb362c4f1c8339",
+  libsidplayfp: "732fa8ec8131fc75aafc2eaea583ddcdeea2a3cc",
   libresidfp: "a5cd8f2486d627c40ea8c7c7a25827db73837002",
 } as const;
 
 /** Version of this npm package. */
-export const PACKAGE_VERSION = "1.0.1";
+export const PACKAGE_VERSION = "1.1.0";
