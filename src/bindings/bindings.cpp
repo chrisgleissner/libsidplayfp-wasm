@@ -556,6 +556,21 @@ public:
             if (!readUnit("filter8580Curve", value)) return false;
             residfp->filter8580Curve(value);
         }
+        if (hasKey(options, "dacLeakage"))
+        {
+            if (!readUnit("dacLeakage", value)) return false;
+            residfp->dacLeakage(value);
+        }
+        if (hasKey(options, "offset6581"))
+        {
+            if (!readUnit("offset6581", value)) return false;
+            residfp->offset6581(value);
+        }
+        if (hasKey(options, "dcbRes"))
+        {
+            if (!readUnit("dcbRes", value)) return false;
+            residfp->dcbRes(value);
+        }
         if (hasKey(options, "old6581Caps"))
         {
             residfp->enableOld6581caps(options["old6581Caps"].as<bool>());

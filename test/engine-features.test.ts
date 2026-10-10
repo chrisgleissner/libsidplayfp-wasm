@@ -9,6 +9,7 @@ import {
   SidAudioEngine,
   UPSTREAM_COMMITS,
   loadLibsidplayfp,
+  type FilterConfig,
   type SidEngine,
 } from "../src/index.js";
 import { measure } from "../scripts/engine-metrics.mjs";
@@ -313,6 +314,97 @@ describe.each(ENGINES)("libsidplayfp feature surface: %s", (engine) => {
       player.dispose();
     }
   }, 60_000);
+});
+
+describe("reSIDfp DAC and DC-blocker tuning", () => {
+  /**
+   * Render the tone on a 6581 after applying `config`. setFilterConfig resets a
+   * loaded tune, so every render here, the baseline included, starts from the
+   * same reset and the PCM is comparable sample for sample.
+   */
+  async function renderTuned(config: FilterConfig): Promise<Int16Array> {
+    const player = new SidAudioEngine({
+      module: loadLibsidplayfp({ engine: "residfp", locateFile: undefined }),
+    });
+    try {
+      await player.loadSidBuffer(TONE);
+      await player.setEmulationConfig({ sidModel: "MOS6581", forceSidModel: true });
+      player.setFilterConfig(config);
+      return await player.renderSeconds(0.5, 20_000);
+    } finally {
+      player.dispose();
+    }
+  }
+
+  const KNOBS: [keyof FilterConfig, number, number][] = [
+    ["dacLeakage", 1.0, 0.0],
+    ["offset6581", 1.0, 0.0],
+    ["dcbRes", 0.0, 1.0],
+  ];
+
+  it.each(KNOBS)(
+    "%s changes the audio away from its default and is a no-op at it",
+    async (knob, defaultValue, otherValue) => {
+      const baseline = await renderTuned({});
+      const atDefault = await renderTuned({ [knob]: defaultValue });
+      const changed = await renderTuned({ [knob]: otherValue });
+
+      expect(Buffer.from(atDefault.buffer).equals(Buffer.from(baseline.buffer))).toBe(true);
+      expect(Buffer.from(changed.buffer).equals(Buffer.from(baseline.buffer))).toBe(false);
+      expect(measure(changed).acRms).toBeGreaterThan(0.0001);
+    },
+    60_000,
+  );
+
+  it.each(KNOBS)("rejects %s outside 0.0..1.0", async (knob) => {
+    const player = new SidAudioEngine({
+      module: loadLibsidplayfp({ engine: "residfp", locateFile: undefined }),
+    });
+    try {
+      await player.loadSidBuffer(TONE);
+      expect(() => player.setFilterConfig({ [knob]: 1.5 })).toThrow(
+        `${knob} must be within 0.0..1.0`,
+      );
+      expect(() => player.setFilterConfig({ [knob]: -0.1 })).toThrow("0.0..1.0");
+    } finally {
+      player.dispose();
+    }
+  }, 60_000);
+
+  /**
+   * Load, tune, then reload. The reload builds a new context and re-applies the
+   * remembered tuning before the tune creates its chips, which is the path
+   * through ReSIDfpBuilder::create rather than through the live chips.
+   *
+   * reSIDfp's dither generator is shared within a module and its position
+   * depends on every table built so far, so PCM is only comparable between two
+   * runs that make the same calls. The control therefore sets the same knob to
+   * its default rather than leaving it unset.
+   */
+  async function renderAfterReload(config: FilterConfig): Promise<Int16Array> {
+    const player = new SidAudioEngine({
+      module: loadLibsidplayfp({ engine: "residfp", locateFile: undefined }),
+    });
+    try {
+      await player.loadSidBuffer(TONE);
+      await player.setEmulationConfig({ sidModel: "MOS6581", forceSidModel: true });
+      player.setFilterConfig(config);
+      await player.loadSidBuffer(TONE);
+      return await player.renderSeconds(0.5, 20_000);
+    } finally {
+      player.dispose();
+    }
+  }
+
+  it.each(KNOBS)(
+    "keeps %s across a reload, applied before the chips exist",
+    async (knob, defaultValue, otherValue) => {
+      const atDefault = await renderAfterReload({ [knob]: defaultValue });
+      const changed = await renderAfterReload({ [knob]: otherValue });
+      expect(Buffer.from(changed.buffer).equals(Buffer.from(atDefault.buffer))).toBe(false);
+    },
+    60_000,
+  );
 });
 
 describe("SID write tracing", () => {
