@@ -1,7 +1,8 @@
 // A native renderer configured *exactly* like the WASM bindings.
 //
 // The distro's /usr/bin/sidplayfp is libsidplayfp 2.6.0, while the WASM build is
-// v3.0.2 + libresidfp 1.1.2. Comparing across that gap conflates "our build is
+// the libsidplayfp and libresidfp pinned in upstream.json, which
+// build-native-reference.sh also builds. Comparing across that gap conflates "our build is
 // wrong" with "upstream changed". This binary is the matched control: same
 // library versions, same SidConfig, same render loop as bindings.cpp — so any
 // residual difference against the WASM is attributable to the WASM build alone.

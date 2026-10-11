@@ -73,7 +73,7 @@ export interface ResolvedEmulationConfig
  * `filter6581Range` and `old6581Caps` are **process-global**: reSIDfp applies
  * them to a `FilterModelConfig6581` singleton through static methods, so they
  * affect every SID instance sharing this WASM module, including ones created
- * earlier. The other three are per-chip. Load a separate module instance if two
+ * earlier. All the others are per-chip. Load a separate module instance if two
  * players in one process need different values.
  */
 export interface FilterConfig {
@@ -83,6 +83,22 @@ export interface FilterConfig {
   filter6581Range?: number;
   /** 8580 filter cutoff curve, 0.0..1.0. Per chip. */
   filter8580Curve?: number;
+  /**
+   * MOSFET leakage of the waveform and envelope DACs, from 0.0 (none) to 1.0
+   * (the modelled chip's standard leakage, the default). Per chip.
+   */
+  dacLeakage?: number;
+  /**
+   * 6581 waveform DC offset, which sets how loud volume-register digis play:
+   * 0.0 for average, 1.0 for loud (the default). Per chip; 6581 only.
+   */
+  offset6581?: number;
+  /**
+   * Resistance of the output DC blocker, which sets its high-pass cutoff:
+   * 0.0 is 10 kOhm, about 1.6 Hz (the default); 1.0 is 1 kOhm, about 16 Hz.
+   * Per chip.
+   */
+  dcbRes?: number;
   /** Emulate the original, leakier 6581 filter capacitors. Process-global. */
   old6581Caps?: boolean;
   /** Strength of the combined-waveform tables. Per chip. */
