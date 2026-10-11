@@ -262,9 +262,10 @@ source at the same pinned commits, not by listening.
 - Full unit suite at **100% line coverage**.
 - **Native differential parity**: both engines compared sample-for-sample
   against a *native* build of libsidplayfp at the same pinned commit. SIDLite
-  matches bit for bit. reSIDfp must hold correlation ≥ 0.9999 and an error
-  below −60 dBFS on every tune; measured runs reach correlation ≥ 0.99998 with
-  errors between −77 and −95 dBFS, below the SID's own noise floor.
+  matches bit for bit. reSIDfp must stay below −60 dBFS of error on every tune,
+  and hold correlation ≥ 0.9999 on every tune loud enough for correlation to be
+  meaningful. Measured runs reach correlation ≥ 0.99998 with errors between
+  −77 and −95 dBFS, below the SID's own noise floor.
 - **Browsers**: Chromium and Firefox on the desktop, Chromium as a Pixel 5,
   WebKit as an iPhone 13 - including playback from module workers.
 - **Determinism**: identical audio on repeat and at any chunk size.
