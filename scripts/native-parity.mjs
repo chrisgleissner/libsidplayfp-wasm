@@ -54,12 +54,21 @@ const GOLDENS_PATH = path.join(PACKAGE_ROOT, "test/fixtures/engine-goldens.json"
  * control against musl too, which would stop it being an independent control,
  * or patching upstream's math, which would make our output differ from every
  * native build instead of one. Neither is a trade worth making for a table
- * perturbation that an IIR filter amplifies to at most 15 LSB out of 32768.
+ * perturbation of this size.
  *
- * On a healthy build the resulting gap is correlation > 0.99999 with an error
- * floor of −81 to −90 dBFS: inaudible, and far below the SID's own noise floor.
+ * The native control is also not deterministic from run to run. libresidfp
+ * builds its filter tables on parallel threads that all advance one shared
+ * dither sequence (`Randomnoise` in FilterModelConfig.h), so which dither value
+ * each entry receives depends on thread scheduling. Two native renders of the
+ * same tune differ by a few LSB (Wizard_of_Oz.sid: 5 LSB, −91 dBFS). The WASM
+ * build runs those builders inline, in order, so it is deterministic, and part
+ * of the gap measured here belongs to the native side.
+ *
+ * At libsidplayfp v3.1.1 + libresidfp v1.2.3 the measured gap on the fast
+ * corpus is correlation >= 0.99998 with errors between −77 and −95 dBFS and at
+ * most 56 LSB on any sample: inaudible, and far below the SID's own noise floor.
  * For scale, a mixer reading freed memory measures correlation 0.75 and roughly
- * −20 dBFS. So −60 dBFS leaves ~20 dB of headroom over observed noise while
+ * −20 dBFS. So −60 dBFS leaves ~17 dB of headroom over observed noise while
  * still catching that defect by ~40 dB.
  *
  * What *is* required, and is asserted directly in test/binding-surface.test.ts,
