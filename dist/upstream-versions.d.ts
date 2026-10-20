@@ -8,5 +8,5 @@ export declare const UPSTREAM_COMMITS: {
     readonly libresidfp: "32c8525418a643eaed8dfafa3d7039e250050cfa";
 };
 /** Version of this npm package. */
-export declare const PACKAGE_VERSION = "1.1.0";
+export declare const PACKAGE_VERSION = "1.1.1";
 //# sourceMappingURL=upstream-versions.d.ts.map

@@ -326,5 +326,10 @@ build rather than a one-off.
   designed to report through a status escape to JavaScript instead.
 - For browser changes, test both artifact locations with Playwright. Browser
   asset resolution is part of the public contract.
+- Container builds that write to a bind mount must take their owner from
+  `scripts/container-owner.sh`, never from `id -u`:`id -g`. On a rootless Docker
+  daemon container root is the invoking user and any other ID is a subordinate
+  host UID, so the numeric host IDs leave `dist/` unwritable.
+  `test/container-owner.test.ts` covers both mappings with a fake `docker`.
 - Update `README.md` when changing installation, assets, ROM handling, engine
   selection, validation, source pins, or release behavior.

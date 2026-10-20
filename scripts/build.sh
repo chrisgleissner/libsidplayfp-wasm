@@ -36,8 +36,12 @@ docker run \
 
 # The emsdk image runs as root, so on Linux the artifacts land root-owned and the
 # host cannot overwrite them — `git checkout` of the committed dist/ included.
+# The owner is chosen by container-owner.sh: on a rootless daemon the invoking
+# user's numeric IDs would map to a subordinate host UID instead.
+# shellcheck source=scripts/container-owner.sh
+source "${SCRIPT_DIR}/container-owner.sh"
 docker run --rm --entrypoint chown \
     -v "${DIST_DIR}:/dist" \
-    "${IMAGE_NAME}" -R "$(id -u):$(id -g)" /dist
+    "${IMAGE_NAME}" -R "$(container_owner)" /dist
 
 echo "Artifacts are available in ${DIST_DIR}"
