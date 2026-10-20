@@ -205,6 +205,7 @@ git submodule update --init --recursive
 
 python3 /opt/libsidplayfp-wasm/scripts/apply-thread-guards.py "${BUILD_ROOT}"
 python3 /opt/libsidplayfp-wasm/scripts/apply-sid-write-hook.py "${BUILD_ROOT}"
+python3 /opt/libsidplayfp-wasm/scripts/apply-sidlite-buffer-guards.py "${BUILD_ROOT}"
 
 if grep -q 'AC_MSG_ERROR("pthreads not found")' configure.ac; then
     sed -i 's/AX_PTHREAD(\[\], \[AC_MSG_ERROR("pthreads not found")\])/AX_PTHREAD([], [])/' configure.ac

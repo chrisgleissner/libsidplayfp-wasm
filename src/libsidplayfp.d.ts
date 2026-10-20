@@ -194,15 +194,15 @@ export class SidPlayerContext {
   selectSong(song: number): number;
 
   /**
-   * Render up to `cycles` C64 cycles.
+   * Execute up to `cycles` event-scheduler steps (internally capped at 20 000).
    *
    * The returned `Int16Array` is a **view into WASM linear memory**, not a
    * copy: the next `render()` overwrites it, and a heap growth detaches it.
    * Copy it (`chunk.slice()`) before calling anything else on this context.
    * `SidAudioEngine` does this for you.
    *
-   * libsidplayfp clamps internally to 20 000 cycles, so one call advances at
-   * most ~20 ms of PAL time however large `cycles` is.
+   * Scheduler steps are not an elapsed C64-cycle or audio-duration bound.
+   * SIDLite grows its sample buffer as needed before clocking the chip.
    */
   render(cycles: number): Int16Array | null;
 

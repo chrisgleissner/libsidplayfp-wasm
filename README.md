@@ -43,6 +43,14 @@ rendering ahead, pull fixed-size blocks:
 const block = await engine.renderFrames(4096); // 4096 frames, interleaved
 ```
 
+The low-level `render(cycles)` argument counts event-scheduler steps, not a
+strict elapsed-cycle or audio-duration budget. SIDLite grows its sample storage
+before clocking the chip and keeps mixer pointers current, including when
+video DMA makes a pull span more than the original 20 ms allocation.
+SIDLite's approximation can still differ slightly between pull sizes; a PCM
+difference alone does not diagnose a buffer error. The capacity regression uses
+AddressSanitizer and the real raster-sensitive input from issue #14.
+
 Subtunes, seeking, and metadata:
 
 ```ts

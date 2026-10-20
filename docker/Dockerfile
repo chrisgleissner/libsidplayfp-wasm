@@ -39,6 +39,7 @@ COPY docker/entrypoint.sh /opt/libsidplayfp-wasm/entrypoint.sh
 COPY scripts/upstream.mjs /opt/libsidplayfp-wasm/scripts/upstream.mjs
 COPY scripts/apply-thread-guards.py /opt/libsidplayfp-wasm/scripts/apply-thread-guards.py
 COPY scripts/apply-sid-write-hook.py /opt/libsidplayfp-wasm/scripts/apply-sid-write-hook.py
+COPY scripts/apply-sidlite-buffer-guards.py /opt/libsidplayfp-wasm/scripts/apply-sidlite-buffer-guards.py
 COPY scripts/smoke-render.mjs /opt/libsidplayfp-wasm/scripts/smoke-render.mjs
 COPY test/fixtures/test-tone-c4.sid /opt/libsidplayfp-wasm/test-tone-c4.sid
 

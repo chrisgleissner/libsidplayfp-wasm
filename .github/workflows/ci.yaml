@@ -54,6 +54,9 @@ jobs:
       - name: Run full unit suite with the 100% line-coverage gate
         run: bun run test:coverage
 
+      - name: Verify SIDLite buffer capacity under AddressSanitizer
+        run: bun run test:buffer:asan .cache/hvsc-85/C64Music .cache/vice-c64-roms
+
       - name: Upload the verified LCOV report to Codecov
         if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
         uses: codecov/codecov-action@v7
