@@ -796,8 +796,9 @@ public:
      * path — but it is a contract, so it is stated here, in the .d.ts, and in the
      * README rather than left to be discovered at runtime.
      *
-     * `Player::play()` clamps internally to MAX_CYCLES (20 000), so one call
-     * advances at most ~20 ms of PAL time regardless of what is requested.
+     * `Player::play()` clamps internally to 20 000 scheduler events. These
+     * are not elapsed PHI1 cycles: VIC DMA can delay CPU events. SIDLite's
+     * buffer grows before every chip clock, including SID reads and writes.
      */
     emscripten::val render(unsigned int cycles)
     {

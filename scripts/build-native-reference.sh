@@ -46,7 +46,7 @@ if [[ -z "${LIBSIDPLAYFP_REF}" || -z "${LIBRESIDFP_REF}" ]]; then
     exit 1
 fi
 
-STAMP_CONTENT="${LIBSIDPLAYFP_REF}|${LIBRESIDFP_REF}|$(sha256sum "${SCRIPT_DIR}/native-reference/render.cpp" | awk '{print $1}')"
+STAMP_CONTENT="${LIBSIDPLAYFP_REF}|${LIBRESIDFP_REF}|$(sha256sum "${SCRIPT_DIR}/native-reference/render.cpp" "${SCRIPT_DIR}/apply-sidlite-buffer-guards.py")"
 STAMP_FILE="${PREFIX}/.build-stamp"
 
 if [[ -x "${PREFIX}/bin/sidflow-native-render" && -f "${STAMP_FILE}" && "$(cat "${STAMP_FILE}")" == "${STAMP_CONTENT}" ]]; then
@@ -94,6 +94,7 @@ git clone --quiet --branch "${LIBSIDPLAYFP_REF}" --depth 1 --recurse-submodules 
     https://github.com/libsidplayfp/libsidplayfp "${WORK}/libsidplayfp"
 (
     cd "${WORK}/libsidplayfp"
+    python3 "${SCRIPT_DIR}/apply-sidlite-buffer-guards.py" "${WORK}/libsidplayfp"
     autoreconf -fi >/dev/null 2>&1
     PKG_CONFIG_PATH="${PREFIX}/lib/pkgconfig" ./configure --prefix="${PREFIX}" \
         --disable-shared --enable-static --without-gcrypt --without-exsid --without-usbsid \

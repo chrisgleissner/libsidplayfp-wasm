@@ -58,6 +58,7 @@
     "test:browser": "playwright test",
     "test:concurrent": "bun test --timeout 60000 test/concurrent-playback.test.ts",
     "test:soak": "LIBSIDPLAYFP_WASM_SOAK=1 bun test --timeout 1800000 test/soak.test.ts",
+    "test:buffer:asan": "bash scripts/test-sidlite-buffer-asan.sh",
     "test:edge": "bun run scripts/edge-corpus.mjs",
     "test:parity": "bun run scripts/native-parity.mjs",
     "test:parity:edge": "bun run scripts/native-parity.mjs --corpus edge",

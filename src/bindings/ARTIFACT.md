@@ -36,6 +36,9 @@ try {
 
 ## Notes
 
+* `render(cycles)` counts event-scheduler steps, internally capped at 20,000;
+  it is not a strict elapsed-cycle or audio-duration bound. SIDLite grows its
+  sample storage before clocks and the mixer refreshes the resulting pointers.
 * `libsidplayfp.d.ts` documents the full surface, including emulation
   configuration (`setEmulationConfig`), reSIDfp filter tuning
   (`setFilterConfig`), per-voice muting (`mute`), register read-back

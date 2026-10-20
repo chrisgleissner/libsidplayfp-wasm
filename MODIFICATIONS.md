@@ -10,7 +10,8 @@ None of these changes are applied to your copy of upstream. They are applied to
 a throwaway checkout inside the build container, at the exact commits pinned in
 `upstream.json`, and the result is the `.wasm` files this package distributes.
 
-Nothing here alters the emulation. The audio path is upstream's own, unchanged.
+The scheduling and waveform algorithms remain upstream's. The capacity guard
+below changes sample-storage allocation and refreshes mixer pointers.
 
 ---
 
@@ -71,6 +72,21 @@ modification is not applied to released builds**; it exists so a maintainer can
 investigate suspected floating-point divergence from a native build.
 
 ---
+
+## 5. SIDLite sample buffer capacity
+
+* **Applied by:** `scripts/apply-sidlite-buffer-guards.py` in both the WASM and
+  native reference builds.
+* **Changed files:** `sidlite-emu.h`, `sidlite-emu.cpp`, `simpleMixer.h` and
+  `player.cpp` in libsidplayfp.
+* **Date of change:** 2026-10-20.
+
+The original 20 ms SIDLite allocation can overflow because `Player::play`
+counts scheduler events rather than elapsed PHI1 cycles. The guard grows the
+allocation before each SID clock, including clocks triggered by reads/writes,
+preserves pending samples, and refreshes the mixer's pointers before mixing.
+It does not discard audio, alter scheduler steps or substitute a smaller pull.
+See issue #14 for the real-input ASAN reproduction and diagnostic controls.
 
 ## Additions rather than modifications
 

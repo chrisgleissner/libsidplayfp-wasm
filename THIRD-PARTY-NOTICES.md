@@ -42,7 +42,8 @@ André Fachat      - reloc65
 Jarno Paananen    - HardSID UNIX builder
 ```
 
-This project modifies libsidplayfp before compiling it. See
+This project modifies libsidplayfp before compiling it, including SIDLite sample
+buffer capacity guards and mixer-pointer refreshes. See
 [`MODIFICATIONS.md`](MODIFICATIONS.md).
 
 ## 2. SIDLite
