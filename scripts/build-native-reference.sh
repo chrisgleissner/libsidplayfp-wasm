@@ -24,7 +24,7 @@ run_in_container() {
     local image_name="libsidplayfp-wasm-native-reference:3.1.74"
     docker build -f "${PACKAGE_ROOT}/docker/native-reference.Dockerfile" -t "${image_name}" "${PACKAGE_ROOT}"
     docker run --rm \
-        --user "$(id -u):$(id -g)" \
+        --user "$(bash "${SCRIPT_DIR}/container-owner.sh")" \
         -e LIBSIDPLAYFP_WASM_NATIVE_REFERENCE_CONTAINER=1 \
         -e LIBSIDPLAYFP_REF \
         -e LIBRESIDFP_REF \
